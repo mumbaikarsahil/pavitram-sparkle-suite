@@ -47,7 +47,7 @@
   --shadow-card: 0 8px 32px -12px color-mix(in oklab, var(--plum-deep) 14%, transparent);
   --shadow-lift: 0 20px 48px -20px color-mix(in oklab, var(--plum-deep) 28%, transparent);
 
-  --gradient-plum: linear-gradient(135deg, oklch(0.30 0.12 320), oklch(0.38 0.13 330));
+  --gradient-plum: linear-gradient(135deg, oklch(0.32 0.16 320), oklch(0.46 0.19 325));
   --gradient-ivory: linear-gradient(180deg, oklch(0.98 0.012 85), oklch(0.955 0.018 70));
   --gradient-gold: linear-gradient(135deg, oklch(0.82 0.13 85), oklch(0.72 0.13 70));
 }
@@ -57,11 +57,11 @@
 
   /* Brand surfaces */
   --ivory: oklch(0.975 0.012 80);
-  --blush: oklch(0.93 0.025 25);
-  --plum: oklch(0.36 0.13 325);
-  --plum-deep: oklch(0.24 0.10 325);
-  --gold: oklch(0.78 0.13 80);
-  --gold-soft: oklch(0.90 0.06 85);
+  --blush: oklch(0.93 0.035 330);
+  --plum: oklch(0.42 0.18 320);
+  --plum-deep: oklch(0.28 0.14 320);
+  --gold: oklch(0.80 0.13 82);
+  --gold-soft: oklch(0.91 0.06 85);
 
   --background: var(--ivory);
   --foreground: oklch(0.18 0.04 320);
