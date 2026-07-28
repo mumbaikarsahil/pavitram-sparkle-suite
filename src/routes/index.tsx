@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SectionHeader } from "@/components/site/SectionHeader";
 import { ProductCard, type ProductCardData } from "@/components/site/ProductCard";
-import heroBridal from "@/assets/hero-bridal.jpg";
+import heroBridal from "@/assets/model1a.png";
 import heroPendant from "@/assets/hero-pendant.jpg";
 import categoryCollection from "@/assets/category-collection.jpg";
 import { ShieldCheck, Truck, RotateCcw, Sparkles, MapPin, ArrowRight, Star } from "lucide-react";
@@ -64,41 +64,61 @@ function HomePage() {
     <>
       {/* HERO */}
       <section className="relative overflow-hidden bg-[image:var(--gradient-ivory)]">
-        <div className="mx-auto max-w-7xl px-6 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center py-14 lg:py-24">
-          <div className="order-2 lg:order-1">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[color:var(--plum)]">The Bridal Edit · 2026</p>
-            <h1 className="mt-4 font-serif text-5xl lg:text-7xl leading-[1.02] text-foreground">
+        {/* Reduced padding: py-6 on mobile, py-10 on tablet, py-14 on desktop. Enforced 2-columns everywhere with grid-cols-2 and no ordering changes. Gaps are tighter to accommodate the overlap. */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-2 gap-3 sm:gap-8 lg:gap-12 items-center py-6 sm:py-10 lg:py-14">
+          
+          {/* Left Side: Text Content - Higher z-index to keep critical text above image, but still allows some overlap from badges. */}
+          <div className="relative z-20 flex flex-col justify-center pr-3">
+            <p className="text-[9px] sm:text-[11px] uppercase tracking-[0.18em] sm:tracking-[0.28em] text-[color:var(--plum)] font-semibold">
+              The Bridal Edit · 2026
+            </p>
+            <h1 className="mt-1.5 sm:mt-4 font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-foreground">
               Heirloom diamonds,<br />
               <span className="italic text-[color:var(--plum)]">reimagined</span> for the modern bride.
             </h1>
-            <div className="gold-divider w-28 my-7" />
-            <p className="text-base text-muted-foreground max-w-md">
+            <div className="gold-divider w-12 sm:w-24 my-3 sm:my-6" />
+            <p className="text-xs sm:text-sm lg:text-base text-muted-foreground max-w-md leading-relaxed">
               Hand-crafted by master karigars. BIS-hallmarked gold. IGI-certified diamonds. Pieces designed to be passed down.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/collections" className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-medium text-primary-foreground shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-lift)] transition-shadow">
-                Explore The Bridal Edit <ArrowRight className="h-4 w-4" />
+            <div className="mt-4 sm:mt-8 flex flex-wrap gap-2 sm:gap-3">
+              <Link to="/collections" className="inline-flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-primary px-3.5 py-2 sm:px-7 sm:py-3.5 text-[11px] sm:text-sm font-medium text-primary-foreground shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-lift)] transition-shadow">
+                Explore Edit <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
               </Link>
-              <Link to="/category/rings" className="inline-flex items-center gap-2 rounded-full border-2 border-[color:var(--plum)] px-7 py-3 text-sm font-medium text-[color:var(--plum)] hover:bg-[color:var(--primary-soft)] transition-colors">
-                Shop New Arrivals
+              <Link to="/category/rings" className="inline-flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-[color:var(--plum)] sm:border-2 px-3.5 py-2 sm:px-7 sm:py-3 text-[11px] sm:text-sm font-medium text-[color:var(--plum)] hover:bg-[color:var(--primary-soft)] transition-colors">
+                New Arrivals
               </Link>
             </div>
-            <div className="mt-10 flex flex-wrap gap-8 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[color:var(--gold)]" /> BIS Hallmarked</span>
-              <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-[color:var(--gold)]" /> IGI Certified</span>
-              <span className="inline-flex items-center gap-2"><Truck className="h-4 w-4 text-[color:var(--gold)]" /> Free Insured Shipping</span>
+            {/* These badges might overlap slightly with the image - text is z-20, so it should stay clear, icons might touch. Gaps are tighter to make them fit. */}
+            <div className="mt-5 sm:mt-10 flex flex-wrap gap-2 sm:gap-6 text-[10px] sm:text-xs text-muted-foreground font-medium">
+              <span className="inline-flex items-center gap-1 sm:gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-[color:var(--gold)] shrink-0" /> BIS Hallmarked</span>
+              <span className="inline-flex items-center gap-1 sm:gap-1.5"><Sparkles className="h-3.5 w-3.5 text-[color:var(--gold)] shrink-0" /> IGI Certified</span>
+              <span className="inline-flex items-center gap-1 sm:gap-1.5"><Truck className="h-3.5 w-3.5 text-[color:var(--gold)] shrink-0" /> Free Shipping</span>
             </div>
           </div>
-          <div className="order-1 lg:order-2 relative">
-            <div className="relative aspect-[4/5] max-w-md mx-auto rounded-3xl overflow-hidden shadow-[var(--shadow-lift)]">
-              <img src={heroBridal} alt="Pavitram bridal jewellery" className="h-full w-full object-cover" />
+
+          {/* Right Side: Simple Transparent Model Image with NEW Plum Background Glow and Large Mobile Overlap. Lower z-index so image doesn't totally hide text. */}
+          <div className="relative z-10 flex justify-center items-center h-full pt-16 sm:pt-0 overflow-visible">
+            
+            {/* 1. New Ambient Secondary Color Glow (Plum) Behind the Model, significantly larger and centered on image div.blur-2xl sm:blur-3xl creates soft edge. -z-20 puts it way back. */}
+            <div className="absolute w-[180%] h-[180%] -top-[40%] -left-[40%] -z-20 bg-[radial-gradient(ellipse_at_center,var(--plum-glow),transparent_65%)] blur-2xl sm:blur-3xl pointer-events-none" />
+
+            <div className="relative w-full h-full">
+              {/* Old max-width and sizing is removed to allow large mobile width and absolute positioning for overlap. */}
+              
+              {/* Old mask and image settings are maintained, but new sizing and positioning are applied. */}
+              {/* On mobile: width is forced to 150% with max-w-none to make it massive and overflow the div. -translate-x-[25%] pulls it left over the text part. z-30 on the image element keeps it on top of its background glow. object-contain and object-bottom ensure model is whole and cuts nicely with mask. */}
+              <img 
+                src={heroBridal} 
+                alt="Pavitram bridal jewellery model" 
+                className="w-[150%] max-w-none absolute bottom-0 left-0 sm:relative sm:w-full sm:max-w-md sm:h-auto object-contain object-bottom drop-shadow-md -translate-x-[25%] sm:translate-x-0 z-30 [mask-image:linear-gradient(to_bottom,black_65%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_65%,transparent_100%)]" 
+              />
+              
+              {/* Old bottom glow is kept and scaled down slightly on mobile. */}
+              <div className="absolute bottom-0 inset-x-0 h-12 sm:h-24 bg-gradient-to-t from-[color:var(--gold)]/25 via-[color:var(--gold)]/5 to-transparent blur-md sm:blur-lg z-20 pointer-events-none" />
             </div>
-            <div className="hidden lg:block absolute -bottom-6 -left-6 w-44 rounded-2xl bg-card shadow-[var(--shadow-card)] p-4 border hairline">
-              <img src={heroPendant} alt="" className="w-full aspect-square object-cover rounded-lg" />
-              <p className="mt-2 text-xs font-serif">Twist Pendant</p>
-              <p className="text-[11px] text-muted-foreground">From ₹29,760</p>
-            </div>
+
           </div>
+
         </div>
       </section>
 

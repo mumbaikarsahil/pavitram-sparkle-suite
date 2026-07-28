@@ -17,7 +17,7 @@ const NAV = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b hairline">
+    <header className="sticky top-0 z-40 bg-white border-b hairline">
       {/* Promo strip */}
       <div className="bg-[color:var(--plum-deep)] text-[color:var(--ivory)] text-xs">
         <div className="mx-auto max-w-7xl px-4 py-2 flex items-center justify-center gap-2">
@@ -28,7 +28,7 @@ export function Header() {
 
       {/* Main bar */}
       <div className="mx-auto max-w-7xl px-4 py-4 flex items-center gap-6">
-        <Logo className="h-12 w-auto shrink-0" />
+        <Logo className="h-16 w-auto shrink-0" />
 
         <div className="hidden md:flex flex-1 max-w-2xl items-center rounded-full border hairline bg-card px-5 py-2.5 shadow-[var(--shadow-soft)]">
           <Search className="h-4 w-4 text-muted-foreground" />
