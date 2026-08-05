@@ -16,6 +16,7 @@ import { Header } from "../components/site/Header";
 import { Footer } from "../components/site/Footer";
 import { MobileBottomNav } from "../components/site/MobileBottomNav";
 import { Toaster } from "../components/ui/sonner";
+import { CartProvider } from '@/context/CartContext';
 
 function NotFoundComponent() {
   return (
@@ -120,6 +121,8 @@ function RootComponent() {
   const isAuthRoute = pathname.startsWith("/auth");
 
   return (
+  <CartProvider>
+
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col pb-16 md:pb-0">
         {!isAuthRoute && <Header />}
@@ -131,5 +134,6 @@ function RootComponent() {
       </div>
       <Toaster />
     </QueryClientProvider>
+  </CartProvider>
   );
 }

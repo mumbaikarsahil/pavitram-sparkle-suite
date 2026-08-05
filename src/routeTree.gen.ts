@@ -12,16 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as CollectionsRouteImport } from './routes/collections'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AccountRouteImport } from './routes/account'
+import { Route as ShopRouteImport } from './routes/Shop'
+import { Route as SearchRouteImport } from './routes/Search'
+import { Route as ComingSoonRouteImport } from './routes/ComingSoon'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as PolicySlugRouteImport } from './routes/policy.$slug'
-import { Route as CollectionSlugRouteImport } from './routes/collection.$slug'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 
 const WishlistRoute = WishlistRouteImport.update({
@@ -39,14 +38,9 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CollectionsRoute = CollectionsRouteImport.update({
-  id: '/collections',
-  path: '/collections',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -59,14 +53,19 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const ShopRoute = ShopRouteImport.update({
+  id: '/Shop',
+  path: '/Shop',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountRoute = AccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const SearchRoute = SearchRouteImport.update({
+  id: '/Search',
+  path: '/Search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComingSoonRoute = ComingSoonRouteImport.update({
+  id: '/ComingSoon',
+  path: '/ComingSoon',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -84,11 +83,6 @@ const PolicySlugRoute = PolicySlugRouteImport.update({
   path: '/policy/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CollectionSlugRoute = CollectionSlugRouteImport.update({
-  id: '/collection/$slug',
-  path: '/collection/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
   id: '/category/$slug',
   path: '/category/$slug',
@@ -97,50 +91,47 @@ const CategorySlugRoute = CategorySlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/auth': typeof AuthRoute
+  '/ComingSoon': typeof ComingSoonRoute
+  '/Search': typeof SearchRoute
+  '/Shop': typeof ShopRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/collections': typeof CollectionsRoute
-  '/search': typeof SearchRoute
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
-  '/collection/$slug': typeof CollectionSlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/auth': typeof AuthRoute
+  '/ComingSoon': typeof ComingSoonRoute
+  '/Search': typeof SearchRoute
+  '/Shop': typeof ShopRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/collections': typeof CollectionsRoute
-  '/search': typeof SearchRoute
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
-  '/collection/$slug': typeof CollectionSlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/auth': typeof AuthRoute
+  '/ComingSoon': typeof ComingSoonRoute
+  '/Search': typeof SearchRoute
+  '/Shop': typeof ShopRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/collections': typeof CollectionsRoute
-  '/search': typeof SearchRoute
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
-  '/collection/$slug': typeof CollectionSlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
@@ -148,66 +139,62 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/account'
-    | '/auth'
+    | '/ComingSoon'
+    | '/Search'
+    | '/Shop'
     | '/cart'
     | '/checkout'
-    | '/collections'
-    | '/search'
+    | '/login'
     | '/sitemap.xml'
     | '/stores'
     | '/wishlist'
     | '/category/$slug'
-    | '/collection/$slug'
     | '/policy/$slug'
     | '/product/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/account'
-    | '/auth'
+    | '/ComingSoon'
+    | '/Search'
+    | '/Shop'
     | '/cart'
     | '/checkout'
-    | '/collections'
-    | '/search'
+    | '/login'
     | '/sitemap.xml'
     | '/stores'
     | '/wishlist'
     | '/category/$slug'
-    | '/collection/$slug'
     | '/policy/$slug'
     | '/product/$slug'
   id:
     | '__root__'
     | '/'
-    | '/account'
-    | '/auth'
+    | '/ComingSoon'
+    | '/Search'
+    | '/Shop'
     | '/cart'
     | '/checkout'
-    | '/collections'
-    | '/search'
+    | '/login'
     | '/sitemap.xml'
     | '/stores'
     | '/wishlist'
     | '/category/$slug'
-    | '/collection/$slug'
     | '/policy/$slug'
     | '/product/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AccountRoute: typeof AccountRoute
-  AuthRoute: typeof AuthRoute
+  ComingSoonRoute: typeof ComingSoonRoute
+  SearchRoute: typeof SearchRoute
+  ShopRoute: typeof ShopRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
-  CollectionsRoute: typeof CollectionsRoute
-  SearchRoute: typeof SearchRoute
+  LoginRoute: typeof LoginRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StoresRoute: typeof StoresRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
-  CollectionSlugRoute: typeof CollectionSlugRoute
   PolicySlugRoute: typeof PolicySlugRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
@@ -235,18 +222,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/collections': {
-      id: '/collections'
-      path: '/collections'
-      fullPath: '/collections'
-      preLoaderRoute: typeof CollectionsRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -263,18 +243,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/Shop': {
+      id: '/Shop'
+      path: '/Shop'
+      fullPath: '/Shop'
+      preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/account': {
-      id: '/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
+    '/Search': {
+      id: '/Search'
+      path: '/Search'
+      fullPath: '/Search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ComingSoon': {
+      id: '/ComingSoon'
+      path: '/ComingSoon'
+      fullPath: '/ComingSoon'
+      preLoaderRoute: typeof ComingSoonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -298,13 +285,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PolicySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/collection/$slug': {
-      id: '/collection/$slug'
-      path: '/collection/$slug'
-      fullPath: '/collection/$slug'
-      preLoaderRoute: typeof CollectionSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/category/$slug': {
       id: '/category/$slug'
       path: '/category/$slug'
@@ -317,17 +297,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AccountRoute: AccountRoute,
-  AuthRoute: AuthRoute,
+  ComingSoonRoute: ComingSoonRoute,
+  SearchRoute: SearchRoute,
+  ShopRoute: ShopRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
-  CollectionsRoute: CollectionsRoute,
-  SearchRoute: SearchRoute,
+  LoginRoute: LoginRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StoresRoute: StoresRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
-  CollectionSlugRoute: CollectionSlugRoute,
   PolicySlugRoute: PolicySlugRoute,
   ProductSlugRoute: ProductSlugRoute,
 }
