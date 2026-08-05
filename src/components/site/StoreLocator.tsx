@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Store, MapPin, Phone, Clock, Search, Navigation } from "lucide-react";
 
-// 1. Added approximate Lat/Lng coordinates for each store to enable real GPS sorting
 export const STORES_DATA = [
   { name: "Chhatrapati Sambhajinagar", address: "Veer Marg, Keli Bazar, Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 431001", phone: null, working_hours: null, lat: 19.8762, lng: 75.3433 },
   { name: "Parbhani", address: "Near Gandhi Park Main Gate, Gandhi Park, Parbhani 431401, Maharashtra", phone: null, working_hours: null, lat: 19.2668, lng: 76.7748 },
@@ -21,9 +20,8 @@ export const STORES_DATA = [
   { name: "Ghatkopar (E)", address: "Shop No. 2, Madhav Apt., Jawahar Road, Next to Samrat Hotel, Ghatkopar East, Mumbai - 400077", phone: "+91 8657003849", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.0790, lng: 72.9080 }
 ];
 
-// 2. The Haversine formula calculates real-world distance between two GPS coordinates
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Radius of the earth in km
+  const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a = 
@@ -39,27 +37,36 @@ interface StoreLocatorProps {
   showSearch?: boolean; 
   title?: string;
   subtitle?: string;
+  initialQuery?: string;
+  initialLocation?: { lat: number; lng: number } | null;
 }
 
 export function StoreLocator({ 
   limit, 
   showSearch = true, 
   title = "Find in Store near you!", 
-  subtitle = "Try it on before you buy it. Visit our nearest boutique." 
+  subtitle = "Try it on before you buy it. Visit our nearest boutique.",
+  initialQuery = "",
+  initialLocation = null
 }: StoreLocatorProps) {
   
-  const [searchQuery, setSearchQuery] = useState("");
-  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(initialLocation);
   const [isLocating, setIsLocating] = useState(false);
 
-  // Trigger browser's GPS locator
+  // Sync state if URL props change
+  useEffect(() => {
+    if (initialQuery) setSearchQuery(initialQuery);
+    if (initialLocation) setUserLocation(initialLocation);
+  }, [initialQuery, initialLocation]);
+
   const handleLocateMe = () => {
     setIsLocating(true);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setSearchQuery(""); // Clear text search if using GPS
+          setSearchQuery(""); 
           setIsLocating(false);
         },
         (error) => {
@@ -77,22 +84,19 @@ export function StoreLocator({
   const displayStores = useMemo(() => {
     let result = [...STORES_DATA].map(store => ({ ...store, distance: null as number | null }));
 
-    // If we have GPS coordinates, calculate actual distance and sort
     if (userLocation) {
       result = result.map(store => ({
         ...store,
         distance: getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, store.lat, store.lng)
       }));
-      // Sort by closest distance
       result.sort((a, b) => (a.distance || 0) - (b.distance || 0));
     } 
-    // Fallback to text search if no GPS
     else if (searchQuery.trim().length > 0) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(store => 
         store.name.toLowerCase().includes(query) || 
         store.address.toLowerCase().includes(query) ||
-        (query.length === 6 && store.address.includes(query)) // Still allow basic exact pincode text match
+        (query.length === 6 && store.address.includes(query))
       );
     }
 
@@ -100,29 +104,35 @@ export function StoreLocator({
   }, [searchQuery, userLocation, limit]);
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto flex flex-col">
-      <div className="text-center mb-8">
-        {title && <h2 className="text-2xl font-bold text-zinc-900 mb-2">{title}</h2>}
-        {subtitle && <p className="text-sm text-zinc-500 mb-6">{subtitle}</p>}
+    <div className="w-full max-w-[1200px] mx-auto flex flex-col px-4 md:px-0">
+      <div className="text-center mb-6 md:mb-8">
+        {title && <h2 className="text-xl md:text-2xl font-bold text-zinc-900 mb-2 font-serif">{title}</h2>}
+        {subtitle && <p className="text-xs md:text-sm text-zinc-500 mb-6">{subtitle}</p>}
         
         {showSearch && (
-          <div className="max-w-xl mx-auto relative flex items-center bg-white rounded-full border border-zinc-200 shadow-sm focus-within:border-[#4A0B49] focus-within:ring-1 focus-within:ring-[#4A0B49]/20 transition-all p-1">
-            <Search className="absolute left-4 w-4 h-4 text-zinc-400" />
-            <input 
-              type="text" 
-              placeholder="Search City or Pincode..." 
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setUserLocation(null); // Clear GPS if user starts typing manually
-              }}
-              className="w-full h-10 pl-10 pr-4 text-sm focus:outline-none bg-transparent"
-            />
-            {/* Locate Me Button */}
+          <div className="max-w-xl mx-auto w-full relative flex flex-col sm:flex-row items-center gap-2 bg-white rounded-2xl sm:rounded-full border border-zinc-200 shadow-sm focus-within:border-[#4A0B49] focus-within:ring-1 focus-within:ring-[#4A0B49]/20 transition-all p-1.5">
+            
+            <div className="relative w-full flex-1 flex items-center">
+              <Search className="absolute left-3 w-4 h-4 text-zinc-400" />
+              <input 
+                type="text" 
+                placeholder="Search City or Pincode..." 
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setUserLocation(null);
+                }}
+                className="w-full h-10 pl-9 pr-4 text-sm focus:outline-none bg-transparent"
+              />
+            </div>
+            
+            {/* Mobile Divider */}
+            <div className="w-full h-[1px] bg-zinc-100 sm:hidden" />
+            
             <button 
               onClick={handleLocateMe}
               disabled={isLocating}
-              className="h-10 px-4 shrink-0 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-70"
+              className="w-full sm:w-auto h-10 px-6 shrink-0 rounded-xl sm:rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
             >
               <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-pulse text-[#4A0B49]' : ''}`} />
               {isLocating ? 'Locating...' : 'Locate Me'}
@@ -131,43 +141,43 @@ export function StoreLocator({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 text-left">
         {displayStores.map((store, i) => (
-          <div key={i} className="border border-zinc-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col justify-between hover:border-[#4A0B49] transition-all group relative overflow-hidden">
+          <div key={i} className="border border-zinc-200 rounded-2xl p-4 md:p-5 bg-white shadow-sm flex flex-col justify-between hover:border-[#4A0B49] transition-all group relative overflow-hidden">
             <div>
               <div className="flex justify-between items-start mb-3">
-                <h4 className="font-bold text-zinc-900 flex items-center gap-2">
-                  <Store className="w-4 h-4 text-[#4A0B49]" /> {store.name}
+                <h4 className="font-bold text-sm md:text-base text-zinc-900 flex items-center gap-2">
+                  <Store className="w-4 h-4 text-[#4A0B49] shrink-0" /> 
+                  <span className="line-clamp-1">{store.name}</span>
                 </h4>
                 
-                {/* Distance Badge */}
                 {store.distance !== null && (
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded ${i === 0 ? 'bg-[#4A0B49]/10 text-[#4A0B49]' : 'bg-zinc-100 text-zinc-500'}`}>
-                    {store.distance.toFixed(1)} km away
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 whitespace-nowrap ${i === 0 ? 'bg-[#4A0B49]/10 text-[#4A0B49]' : 'bg-zinc-100 text-zinc-500'}`}>
+                    {store.distance.toFixed(1)} km
                   </span>
                 )}
               </div>
               
               <div className="space-y-2 mb-6">
-                <p className="text-xs text-zinc-600 flex items-start gap-2 leading-relaxed">
+                <p className="text-[11px] md:text-xs text-zinc-600 flex items-start gap-2 leading-relaxed">
                   <MapPin className="w-3.5 h-3.5 shrink-0 text-zinc-400 mt-0.5" /> 
-                  <span>{store.address}</span>
+                  <span className="line-clamp-2 md:line-clamp-3">{store.address}</span>
                 </p>
                 {store.phone && (
-                  <p className="text-xs text-zinc-600 flex items-center gap-2">
+                  <p className="text-[11px] md:text-xs text-zinc-600 flex items-center gap-2">
                     <Phone className="w-3.5 h-3.5 shrink-0 text-zinc-400" /> 
                     <span>{store.phone}</span>
                   </p>
                 )}
                 {store.working_hours && (
-                  <p className="text-xs text-zinc-600 flex items-start gap-2">
+                  <p className="text-[11px] md:text-xs text-zinc-600 flex items-start gap-2">
                     <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400 mt-0.5" /> 
                     <span>{store.working_hours}</span>
                   </p>
                 )}
               </div>
             </div>
-            <button className="w-full border border-zinc-200 text-zinc-700 font-bold text-xs py-3 rounded-lg group-hover:bg-[#4A0B49] group-hover:border-[#4A0B49] group-hover:text-white transition-all uppercase tracking-widest mt-auto">
+            <button className="w-full border border-zinc-200 text-zinc-700 font-bold text-[11px] md:text-xs py-2.5 md:py-3 rounded-lg group-hover:bg-[#4A0B49] group-hover:border-[#4A0B49] group-hover:text-white transition-all uppercase tracking-widest mt-auto">
               Book a Visit
             </button>
           </div>

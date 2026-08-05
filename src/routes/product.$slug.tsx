@@ -6,7 +6,7 @@ import { StoreLocator } from "@/components/site/StoreLocator";
 import { 
   Loader2, PackageX, ChevronRight, Ruler, Gem, ShieldCheck, 
   Truck, MessageCircle, Heart, ShoppingBag, Play, MapPin, 
-  ArrowRight, Star, RefreshCw, Award, Store 
+  ArrowRight, Star, RefreshCw, Award, Store, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,9 +25,13 @@ export default function ProductPage() {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [mediaItems, setMediaItems] = useState<{ type: 'image' | 'video', url: string }[]>([]);
 
-  // Image Zoom State
+  // Image Zoom State (Existing)
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
+
+  // Mobile Fullscreen Modal State (NEW)
+  const [isMobileZoomOpen, setIsMobileZoomOpen] = useState(false);
+  const [mobileZoomIndex, setMobileZoomIndex] = useState(0);
 
   // 👇 ADD THIS BLOCK HERE 👇
   const { addToCart } = useCart();
@@ -156,11 +160,19 @@ export default function ProductPage() {
                 </div>
               ) : (
                 mediaItems.map((item, idx) => (
-                  <div key={idx} className="w-full aspect-square flex items-center justify-center snap-center shrink-0 p-8 relative">
+                  <div 
+                    key={idx} 
+                    className="w-full aspect-square flex items-center justify-center snap-center shrink-0 p-8 relative cursor-pointer"
+                    // 👇 ADD THIS ONCLICK 👇
+                    onClick={() => {
+                      setMobileZoomIndex(idx);
+                      setIsMobileZoomOpen(true);
+                    }}
+                  >
                     {item.type === 'video' ? (
                       <video src={item.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
                     ) : (
-                      <img src={item.url} alt={`${product.title} view ${idx + 1}`} className="w-full h-full object-contain mix-blend-multiply" />
+                      <img src={item.url} alt={`${product.title} view ${idx + 1}`} className="w-full h-full object-contain mix-blend-multiply pointer-events-none" />
                     )}
                     <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
                       {mediaItems.map((_, dotIdx) => (
@@ -170,6 +182,62 @@ export default function ProductPage() {
                   </div>
                 ))
               )}
+              {/* ========================================================= */}
+      {/* MOBILE FULLSCREEN IMAGE MODAL */}
+      {/* ========================================================= */}
+      {isMobileZoomOpen && mediaItems.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md lg:hidden">
+          
+          {/* Close Button */}
+          <button
+            onClick={() => setIsMobileZoomOpen(false)}
+            className="absolute top-6 right-6 text-white z-[101] p-3 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-all"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          {/* Main Image Viewer */}
+          <div className="w-full h-full flex items-center justify-center p-4">
+            {mediaItems[mobileZoomIndex]?.type === 'video' ? (
+              <video 
+                src={mediaItems[mobileZoomIndex].url} 
+                controls autoPlay loop playsInline 
+                className="w-full h-auto max-h-[85vh] object-contain" 
+              />
+            ) : (
+              <img 
+                src={mediaItems[mobileZoomIndex]?.url} 
+                alt={`${product.title} zoomed`} 
+                className="w-full h-auto max-h-[85vh] object-contain" 
+              />
+            )}
+          </div>
+
+          {/* Navigation Arrows (Only show if there is more than 1 image) */}
+          {mediaItems.length > 1 && (
+            <div className="absolute bottom-28 left-0 right-0 flex justify-center gap-8 z-[101]">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMobileZoomIndex(prev => prev === 0 ? mediaItems.length - 1 : prev - 1);
+                }}
+                className="p-4 rounded-full bg-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-all"
+              >
+                <ChevronRight className="w-7 h-7 rotate-180" />
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMobileZoomIndex(prev => prev === mediaItems.length - 1 ? 0 : prev + 1);
+                }}
+                className="p-4 rounded-full bg-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-all"
+              >
+                <ChevronRight className="w-7 h-7" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
             </div>
 
             {/* Desktop Layout: Left Thumbnails + Right Zoom Viewer */}

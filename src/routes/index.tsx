@@ -6,7 +6,8 @@ import {
   MapPin, Gift, Wallet, Instagram, Facebook, 
   Mail, MessageCircle, Video, PhoneCall, 
   Truck,
-  Navigation
+  Navigation,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/site/Logo";
@@ -63,19 +64,44 @@ function Index() {
   const navigate = useNavigate({ from: '/' });
   const [storeQuery, setStoreQuery] = useState("");
 
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Passes the typed Pincode/City to the stores page
   const handleStoreSearch = () => {
     if (storeQuery.trim()) {
-      // Pass the query to the stores page via URL parameter
-      navigate({ to: '/stores', search: { q: storeQuery.trim() } });
-    } else {
-      navigate({ to: '/stores' });
+      navigate({
+        to: "/stores",
+        search: { q: storeQuery.trim() } 
+      });
     }
   };
 
+  // Uses browser GPS to pass exact coordinates to the stores page
   const handleAutoDetect = () => {
-    // Pass a flag to the stores page to immediately trigger GPS
-    navigate({ to: '/stores', search: { auto: true } });
+    setIsLocating(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setIsLocating(false);
+          navigate({
+            to: "/stores",
+            search: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            }
+          });
+        },
+        (error) => {
+          setIsLocating(false);
+          console.error("Location access denied or failed", error);
+          // Optional: Add a toast notification here to tell the user to enable location
+        }
+      );
+    } else {
+      setIsLocating(false);
+    }
   };
+
 
   
 
@@ -478,7 +504,7 @@ function Index() {
               </h2>
               
               <p className="text-[10px] md:text-base text-zinc-600 md:mb-6 font-medium leading-snug line-clamp-2 md:line-clamp-none pr-2 md:pr-0">
-                Try it on before you buy it. With 15 premium boutiques, experiencing our brilliance is effortless.
+                Try it on before you buy it. With premium boutiques across the city, experiencing our brilliance is effortless.
               </p>
             </div>
 
@@ -501,23 +527,32 @@ function Index() {
                 </button>
               </div>
 
+              {/* Clean, professional bottom links */}
               <div className="flex items-center justify-between mt-4 md:mt-6 px-1">
-                {/* ✨ UPDATED: High-visibility Auto-Detect Button */}
+                
                 <button 
                   onClick={handleAutoDetect}
-                  className="bg-fuchsia-100 hover:bg-fuchsia-200 text-[#4A0B49] px-4 py-2.5 rounded-full text-[9px] md:text-xs font-black flex items-center gap-2 transition-colors uppercase tracking-widest shadow-sm group/btn border border-fuchsia-200"
+                  disabled={isLocating}
+                  className="text-[10px] md:text-xs font-bold text-zinc-500 hover:text-[#4A0B49] flex items-center gap-1.5 transition-colors uppercase tracking-widest group/detect disabled:opacity-50"
                 >
-                  <Navigation className="w-3 h-3 md:w-4 md:h-4 group-hover/btn:animate-bounce" /> 
-                  <span>Auto-Detect Location</span>
+                  {isLocating ? (
+                    <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" />
+                  ) : (
+                    <Navigation className="w-3 h-3 md:w-4 md:h-4 group-hover/detect:text-[#4A0B49]" />
+                  )}
+                  <span className="border-b border-transparent group-hover/detect:border-[#4A0B49] pb-0.5 transition-all">
+                    {isLocating ? "Locating..." : "Use Current Location"}
+                  </span>
                 </button>
 
                 <Link to="/stores" className="text-[10px] md:text-xs font-bold text-zinc-500 flex items-center gap-1.5 hover:text-[#4A0B49] transition-colors uppercase tracking-widest group/link">
-                  <span className="border-b border-transparent group-hover/link:border-[#4A0B49] pb-0.5 transition-all">View Directory</span> 
+                  <span className="border-b border-transparent group-hover/link:border-[#4A0B49] pb-0.5 transition-all">View All Stores</span> 
                   <ArrowRight className="w-3 h-3 md:w-4 md:h-4 group-hover/link:translate-x-1 transition-transform" />
                 </Link>
+                
               </div>
-
             </div>
+
           </div>
         </div>
       </section>
