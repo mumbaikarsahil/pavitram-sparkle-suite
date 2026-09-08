@@ -10,6 +10,9 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+// ✨ NEW: Import Lenis for Premium Smooth Scrolling
+import { ReactLenis } from 'lenis/react';
+
 import appCss from "../styles.css?url";
 import { Header } from "../components/site/Header";
 import { Footer } from "../components/site/Footer";
@@ -62,6 +65,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     </div>
   );
 }
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -122,16 +126,18 @@ function RootComponent() {
 
   return (
   <CartProvider>
-
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col pb-16 md:pb-0">
-        {!isAuthRoute && <Header />}
-        <main className="flex-1">
-          <Outlet />
-        </main>
-        {!isAuthRoute && <Footer />}
-        {!isAuthRoute && <MobileBottomNav />}
-      </div>
+      {/* ✨ WRAPPED APP IN PREMIUM SMOOTH SCROLL */}
+      <ReactLenis root options={{ lerp: 0.07, duration: 1.2, smoothWheel: true }}>
+        <div className="flex min-h-screen flex-col pb-16 md:pb-0">
+          {!isAuthRoute && <Header />}
+          <main className="flex-1">
+            <Outlet />
+          </main>
+          {!isAuthRoute && <Footer />}
+          {!isAuthRoute && <MobileBottomNav />}
+        </div>
+      </ReactLenis>
       <Toaster />
     </QueryClientProvider>
   </CartProvider>

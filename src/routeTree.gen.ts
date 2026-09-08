@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as TrackOrderRouteImport } from './routes/track-order'
+import { Route as SuccessRouteImport } from './routes/success'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LoginRouteImport } from './routes/login'
@@ -18,14 +20,29 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as ShopRouteImport } from './routes/Shop'
 import { Route as SearchRouteImport } from './routes/Search'
 import { Route as ComingSoonRouteImport } from './routes/ComingSoon'
+import { Route as AccountRouteImport } from './routes/Account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as PolicyTermsRouteImport } from './routes/policy/terms'
+import { Route as PolicyShippingRouteImport } from './routes/policy/shipping'
+import { Route as PolicyReturnsRouteImport } from './routes/policy/returns'
+import { Route as PolicyAboutRouteImport } from './routes/policy/about'
 import { Route as PolicySlugRouteImport } from './routes/policy.$slug'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackOrderRoute = TrackOrderRouteImport.update({
+  id: '/track-order',
+  path: '/track-order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuccessRoute = SuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoresRoute = StoresRouteImport.update({
@@ -68,6 +85,11 @@ const ComingSoonRoute = ComingSoonRouteImport.update({
   path: '/ComingSoon',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/Account',
+  path: '/Account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -76,6 +98,26 @@ const IndexRoute = IndexRouteImport.update({
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyTermsRoute = PolicyTermsRouteImport.update({
+  id: '/policy/terms',
+  path: '/policy/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyShippingRoute = PolicyShippingRouteImport.update({
+  id: '/policy/shipping',
+  path: '/policy/shipping',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyReturnsRoute = PolicyReturnsRouteImport.update({
+  id: '/policy/returns',
+  path: '/policy/returns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolicyAboutRoute = PolicyAboutRouteImport.update({
+  id: '/policy/about',
+  path: '/policy/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PolicySlugRoute = PolicySlugRouteImport.update({
@@ -91,6 +133,7 @@ const CategorySlugRoute = CategorySlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/Account': typeof AccountRoute
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
@@ -99,13 +142,20 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
+  '/success': typeof SuccessRoute
+  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
+  '/policy/about': typeof PolicyAboutRoute
+  '/policy/returns': typeof PolicyReturnsRoute
+  '/policy/shipping': typeof PolicyShippingRoute
+  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/Account': typeof AccountRoute
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
@@ -114,14 +164,21 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
+  '/success': typeof SuccessRoute
+  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
+  '/policy/about': typeof PolicyAboutRoute
+  '/policy/returns': typeof PolicyReturnsRoute
+  '/policy/shipping': typeof PolicyShippingRoute
+  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/Account': typeof AccountRoute
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
@@ -130,15 +187,22 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
+  '/success': typeof SuccessRoute
+  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
+  '/policy/about': typeof PolicyAboutRoute
+  '/policy/returns': typeof PolicyReturnsRoute
+  '/policy/shipping': typeof PolicyShippingRoute
+  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/Account'
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
@@ -147,13 +211,20 @@ export interface FileRouteTypes {
     | '/login'
     | '/sitemap.xml'
     | '/stores'
+    | '/success'
+    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
+    | '/policy/about'
+    | '/policy/returns'
+    | '/policy/shipping'
+    | '/policy/terms'
     | '/product/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/Account'
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
@@ -162,13 +233,20 @@ export interface FileRouteTypes {
     | '/login'
     | '/sitemap.xml'
     | '/stores'
+    | '/success'
+    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
+    | '/policy/about'
+    | '/policy/returns'
+    | '/policy/shipping'
+    | '/policy/terms'
     | '/product/$slug'
   id:
     | '__root__'
     | '/'
+    | '/Account'
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
@@ -177,14 +255,21 @@ export interface FileRouteTypes {
     | '/login'
     | '/sitemap.xml'
     | '/stores'
+    | '/success'
+    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
+    | '/policy/about'
+    | '/policy/returns'
+    | '/policy/shipping'
+    | '/policy/terms'
     | '/product/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   ComingSoonRoute: typeof ComingSoonRoute
   SearchRoute: typeof SearchRoute
   ShopRoute: typeof ShopRoute
@@ -193,9 +278,15 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StoresRoute: typeof StoresRoute
+  SuccessRoute: typeof SuccessRoute
+  TrackOrderRoute: typeof TrackOrderRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
   PolicySlugRoute: typeof PolicySlugRoute
+  PolicyAboutRoute: typeof PolicyAboutRoute
+  PolicyReturnsRoute: typeof PolicyReturnsRoute
+  PolicyShippingRoute: typeof PolicyShippingRoute
+  PolicyTermsRoute: typeof PolicyTermsRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
 
@@ -206,6 +297,20 @@ declare module '@tanstack/react-router' {
       path: '/wishlist'
       fullPath: '/wishlist'
       preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/track-order': {
+      id: '/track-order'
+      path: '/track-order'
+      fullPath: '/track-order'
+      preLoaderRoute: typeof TrackOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/success': {
+      id: '/success'
+      path: '/success'
+      fullPath: '/success'
+      preLoaderRoute: typeof SuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stores': {
@@ -264,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComingSoonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/Account': {
+      id: '/Account'
+      path: '/Account'
+      fullPath: '/Account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -276,6 +388,34 @@ declare module '@tanstack/react-router' {
       path: '/product/$slug'
       fullPath: '/product/$slug'
       preLoaderRoute: typeof ProductSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy/terms': {
+      id: '/policy/terms'
+      path: '/policy/terms'
+      fullPath: '/policy/terms'
+      preLoaderRoute: typeof PolicyTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy/shipping': {
+      id: '/policy/shipping'
+      path: '/policy/shipping'
+      fullPath: '/policy/shipping'
+      preLoaderRoute: typeof PolicyShippingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy/returns': {
+      id: '/policy/returns'
+      path: '/policy/returns'
+      fullPath: '/policy/returns'
+      preLoaderRoute: typeof PolicyReturnsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policy/about': {
+      id: '/policy/about'
+      path: '/policy/about'
+      fullPath: '/policy/about'
+      preLoaderRoute: typeof PolicyAboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/policy/$slug': {
@@ -297,6 +437,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   ComingSoonRoute: ComingSoonRoute,
   SearchRoute: SearchRoute,
   ShopRoute: ShopRoute,
@@ -305,9 +446,15 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StoresRoute: StoresRoute,
+  SuccessRoute: SuccessRoute,
+  TrackOrderRoute: TrackOrderRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
   PolicySlugRoute: PolicySlugRoute,
+  PolicyAboutRoute: PolicyAboutRoute,
+  PolicyReturnsRoute: PolicyReturnsRoute,
+  PolicyShippingRoute: PolicyShippingRoute,
+  PolicyTermsRoute: PolicyTermsRoute,
   ProductSlugRoute: ProductSlugRoute,
 }
 export const routeTree = rootRouteImport
