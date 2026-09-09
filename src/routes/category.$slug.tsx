@@ -420,7 +420,7 @@ function CategoryPage() {
                       className="group flex flex-col cursor-pointer"
                     >
                       {/* Image Area */}
-                      <div className="aspect-[4/5] w-full bg-white rounded-sm overflow-hidden relative shrink-0 mb-3 md:mb-4 border border-[#E9D8C3]">
+                      <div className="aspect-[4/5] w-full bg-white rounded-sm overflow-hidden relative shrink-0 mb-3 border border-[#E9D8C3]">
                         {displayImage ? (
                           <img 
                             src={displayImage} 
@@ -447,16 +447,16 @@ function CategoryPage() {
                         )}
                       </div>
                       
-                      {/* Content Area */}
-                      <div className="flex flex-col text-center px-1">
-                        <span className="text-[9px] md:text-[10px] font-sans font-medium text-zinc-500 uppercase tracking-[0.15em] mb-1 md:mb-1.5 line-clamp-1">
+                      {/* ✨ FIXED TYPOGRAPHY & LAYOUT: Content Area */}
+                      <div className="flex flex-col text-left pt-1 pb-2">
+                        <span className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.15em] mb-1 line-clamp-1">
                           {product.category?.name || category.name || "Jewellery"}
                         </span>
-                        <h4 className="text-[12px] md:text-[14px] font-serif font-medium text-[#302832] line-clamp-1 mb-1.5 md:mb-2 group-hover:text-[#C9A15B] transition-colors">
+                        <h4 className="text-[13px] md:text-[14px] font-sans font-medium text-[#302832] line-clamp-2 leading-snug mb-1.5 group-hover:text-[#4A1F58] transition-colors">
                           {product.title || "Unnamed Product"}
                         </h4>
-                        <span className="text-[13px] md:text-[16px] font-serif font-semibold text-[#4A1F58]">
-                          {product.mrp != null ? `₹${Number(product.mrp).toLocaleString('en-IN')}` : "TBA"}
+                        <span className="text-[14px] md:text-[15px] font-sans font-bold tracking-wide text-[#302832]">
+                          {product.mrp != null ? `₹ ${Number(product.mrp).toLocaleString('en-IN')}` : "Price on Request"}
                         </span>
                       </div>
                     </Link>

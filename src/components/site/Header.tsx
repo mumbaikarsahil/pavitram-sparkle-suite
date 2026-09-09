@@ -182,56 +182,63 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#F7F1E8]/95 md:bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-colors duration-300 font-sans border-b border-[#E9D8C3]/50">
-
+    <header className="sticky top-0 z-50 bg-[#4A1F58] md:bg-[#FCF9F5]/95 backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-colors duration-300 font-sans md:border-b md:border-[#E9D8C3]/50">
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      {/* ✨ 1. MOBILE NAVIGATION BAR */}
-      <div className="md:hidden flex items-center justify-between px-4 h-[60px] relative">
+     {/* ✨ 1. MOBILE NAVIGATION BAR (Hard-anchored to prevent load shifts) */}
+     <div className="md:hidden h-[60px] relative w-full">
+        
+        {/* LEFT: Menu Button */}
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
           aria-label="Menu" 
-          className="text-[#302832] hover:text-[#C9A15B] transition-colors p-1 z-10 -ml-1"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-white hover:text-[#C9A15B] transition-colors p-1 z-10"
         >
           <Menu strokeWidth={1.5} className="w-6 h-6" />
         </button>
         
-        {/* Pavitram Stacked Text Centered */}
+        {/* CENTER: Pavitram Stacked Text */}
         <Link 
           to="/" 
-          className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center text-center pt-0.5"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center pt-0.5 w-max z-10"
         >
           <span 
-            className="font-serif text-[18px] tracking-[0.2em] text-[#4A1F58] uppercase leading-none"
+            className="font-serif text-[18px] tracking-[0.2em] text-white uppercase leading-none"
             style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
           >
             Pavitram
           </span>
-          <span className="font-sans text-[6px] font-bold tracking-[0.35em] text-[#4A1F58]/80 uppercase leading-none mt-1.5 ml-1">
+          <span className="font-sans text-[7.5px] font-bold tracking-[0.3em] text-white/90 uppercase leading-none mt-1 ml-0.5">
             Diamond Jewellery
           </span>
         </Link>
 
-        {/* Bigger Mobile Logo Right */}
-        <Link to="/" className="shrink-0 flex items-center z-10 -mr-1">
-          <Logo className="h-7 w-auto object-contain" />
+        {/* RIGHT: Logo Container */}
+        <Link 
+          to="/" 
+          className="absolute right-2 top-1/2 -translate-y-1/2 shrink-0 flex items-center justify-center z-10 w-[65px] h-[45px] bg-white rounded-none overflow-hidden shadow-sm"
+        >
+          <Logo className="h-12 w-auto max-w-none scale-[1] object-cover origin-center transform" />
         </Link>
+
       </div>
+
       {/* ✨ 2. DESKTOP NAVIGATION BAR */}
-      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-5 items-center justify-between gap-8">
+      {/* ✨ FIXED: Reduced py-3 to py-1.5 to keep header height tight while allowing bigger logo */}
+      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-1.5 items-center justify-between gap-8">
         
-        {/* Increased Logo Size */}
+        {/* ✨ FIXED: Increased Logo Size to 60px */}
         <div className="shrink-0 flex items-center">
           <Link to="/">
-            <Logo className="h-[64px] w-auto object-contain" />
+            <Logo className="h-[60px] w-auto object-contain" />
           </Link>
         </div>
 
-        {/* Luxury Search Bar (Sharp corners, Beige background) */}
-        <div className="flex-1 max-w-[500px] h-12 flex items-center rounded-sm border border-[#E9D8C3] bg-[#F7F1E8]/50 px-4 hover:border-[#C9A15B] focus-within:border-[#C9A15B] focus-within:bg-white focus-within:shadow-sm transition-all group">
+        {/* Luxury Search Bar */}
+        <div className="flex-1 max-w-[500px] h-10 flex items-center rounded-sm border border-[#E9D8C3] bg-[#F7F1E8]/50 px-4 hover:border-[#C9A15B] focus-within:border-[#C9A15B] focus-within:bg-white focus-within:shadow-sm transition-all group">
           <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
           <input
             type="search"
@@ -250,16 +257,16 @@ export function Header() {
           <div className="relative flex h-full items-center" ref={locationMenuRef}>
             <div 
               onClick={handleLocationMenuClick}
-              className="flex h-12 items-center gap-3 cursor-pointer bg-white border border-[#E9D8C3] hover:border-[#C9A15B] hover:shadow-sm px-5 rounded-sm transition-all group"
+              className="flex h-10 items-center gap-3 cursor-pointer bg-white border border-[#E9D8C3] hover:border-[#C9A15B] hover:shadow-sm px-4 rounded-sm transition-all group"
             >
               <Store strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B] group-hover:text-[#4A1F58] transition-colors" />
-              <div className="flex flex-col items-start pr-1 justify-center mt-0.5">
-                <span className="text-[9px] text-zinc-400 font-sans font-bold uppercase tracking-[0.2em] leading-none mb-1">
+              <div className="flex flex-col items-start pr-1 justify-center">
+                <span className="text-[8px] text-zinc-400 font-sans font-bold uppercase tracking-[0.2em] leading-none mb-1">
                    {nearestStore ? `Store: ${nearestStore.name.split(' ')[0]}` : 'Find a Store'}
                 </span>
-                <span className="text-[11px] font-sans font-bold text-[#4A1F58] flex items-center gap-1.5 leading-none uppercase tracking-[0.15em] group-hover:text-[#C9A15B] transition-colors">
+                <span className="text-[10px] font-sans font-bold text-[#4A1F58] flex items-center gap-1.5 leading-none uppercase tracking-[0.15em] group-hover:text-[#C9A15B] transition-colors">
                    {activeLocationLabel ? activeLocationLabel : 'Select Location'} 
-                   <Edit2 strokeWidth={2} className="w-3 h-3 opacity-60" />
+                   <Edit2 strokeWidth={2} className="w-2.5 h-2.5 opacity-60" />
                 </span>
               </div>
             </div>
@@ -325,16 +332,16 @@ export function Header() {
             )}
           </div>
 
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-5">
             <Link to="/login" aria-label="Account" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
-              <User strokeWidth={1.5} className="h-6 w-6" />
+              <User strokeWidth={1.5} className="h-[22px] w-[22px]" />
             </Link>
             <Link to="/wishlist" aria-label="Wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
-              <Heart strokeWidth={1.5} className="h-6 w-6" />
+              <Heart strokeWidth={1.5} className="h-[22px] w-[22px]" />
             </Link>
             <Link to="/cart" aria-label="Cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative">
-              <ShoppingBag strokeWidth={1.5} className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_white]" />
+              <ShoppingBag strokeWidth={1.5} className="h-[22px] w-[22px]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_white]" />
             </Link>
           </nav>
         </div>
@@ -342,7 +349,7 @@ export function Header() {
 
       {/* ✨ 3. DESKTOP CATEGORY NAVIGATION BAR */}
       <div
-        className="hidden md:block relative bg-[#F7F1E8] border-t border-b border-[#E9D8C3]"
+        className="hidden md:block relative bg-[#4A1F58] border-t border-b border-[#4A1F58]"
         onMouseLeave={() => { setIsMenuOpen(false); setActiveParent(null); }}
       >
        <nav className="mx-auto max-w-[1400px] px-8 h-12 flex items-center justify-start lg:justify-center overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -353,18 +360,18 @@ export function Header() {
               return (
                 <li
                   key={parent.id}
-                  className="h-full flex items-center shrink-0"
+                  className="h-full flex items-center shrink-0 group"
                   onMouseEnter={() => { setActiveParent(parent); setIsMenuOpen(true); setIsLocationMenuOpen(false); }}
                 >
                   <Link
                     to="/category/$slug"
                     params={{ slug: parent.slug }}
                     className={`whitespace-nowrap flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-[0.15em] uppercase transition-colors h-full pt-[2px] border-b-2 ${
-                      isSelected ? "text-[#4A1F58] border-[#4A1F58]" : "text-[#302832] border-transparent hover:text-[#C9A15B]"
+                      isSelected ? "text-[#C9A15B] border-[#C9A15B]" : "text-white/90 border-transparent hover:text-[#C9A15B]"
                     }`}
                   >
                     {parent.name}
-                    {hasChildren && <ChevronDown strokeWidth={2} className={`h-3 w-3 transition-transform ${isSelected ? 'rotate-180 text-[#4A1F58]' : 'text-zinc-400'}`} />}
+                    {hasChildren && <ChevronDown strokeWidth={2} className={`h-3 w-3 transition-transform ${isSelected ? 'rotate-180 text-[#C9A15B]' : 'text-white/60 group-hover:text-[#C9A15B]'}`} />}
                   </Link>
                 </li>
               );
@@ -461,7 +468,6 @@ export function Header() {
                 <X strokeWidth={2} className="w-6 h-6" />
               </button>
               <div className="flex-1 flex justify-center">
-                {/* ✨ INCREASED LOGO SIZE in Drawer */}
                 <Logo className="h-10 w-auto object-contain" />
               </div>
               <div className="w-10 shrink-0"></div> {/* Spacer for perfect centering */}

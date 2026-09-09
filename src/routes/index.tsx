@@ -7,7 +7,9 @@ import {
   MapPin, Instagram, Mail, MessageCircle, 
   Navigation, Loader2, PackageX,
   Diamond, CheckCircle2, Heart,
-  Sparkles, Award
+  Sparkles, Award,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -186,8 +188,37 @@ function Index() {
     }
   };
 
+  // Add this inside your component, before the return statement
+ // 1. Reference for the scroll container
+ const storyScrollRef = useRef<HTMLDivElement>(null);
+
+ // 2. Auto-center the 3rd video on mobile load
+ useEffect(() => {
+   const container = storyScrollRef.current;
+   // Only run this alignment on mobile screens
+   if (container && window.innerWidth < 768) {
+     // Small timeout ensures the DOM has fully painted the widths before scrolling
+     setTimeout(() => {
+       const thirdItem = container.children[2] as HTMLElement; // Index 2 is the 3rd item
+       if (thirdItem) {
+         const scrollPos = thirdItem.offsetLeft - (container.clientWidth / 2) + (thirdItem.clientWidth / 2);
+         container.scrollTo({ left: scrollPos, behavior: 'smooth' });
+       }
+     }, 200);
+   }
+ }, []);
+
+ // 3. Arrow button logic
+ const scrollStories = (direction: 'left' | 'right') => {
+   if (storyScrollRef.current) {
+     const { current } = storyScrollRef;
+     // Scroll by roughly one card width (75vw on mobile, 320px on desktop)
+     const scrollAmount = window.innerWidth < 768 ? window.innerWidth * 0.75 : 320;
+     current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+   }
+ };
   return (
-    <div className="min-h-screen bg-[#F7F1E8] font-sans text-[#302832] pb-0 relative overflow-hidden">
+    <div className="min-h-screen bg-[#FCF9F5] font-sans text-[#302832] pb-0 relative overflow-hidden">
       
       {/* CSS Ticker & Global Styles */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -202,7 +233,8 @@ function Index() {
       {/* 1. HERO SLIDER BANNER */}
       <section className="relative w-full overflow-hidden bg-white">
         <div 
-          className="relative w-full aspect-square sm:aspect-[4/3] md:aspect-[21/9] lg:aspect-[7/2] overflow-hidden group bg-[#E9D8C3]"
+        
+          className="relative w-full aspect-[5/4] sm:aspect-[4/3] md:aspect-[21/9] lg:aspect-[7/2] overflow-hidden group bg-[#E9D8C3]"
           onMouseEnter={() => setIsPaused(true)} 
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -243,7 +275,7 @@ function Index() {
       </section>
 
       {/* 2. CATEGORY 2x2 GRID (Swipeable & Dynamic) */}
-      <section className="relative px-4 md:px-8 pt-8 pb-12 md:pt-16 md:pb-24 z-20 overflow-hidden bg-white/60">
+      <section className="relative px-4 md:px-8 pt-8 pb-12 md:pt-16 md:pb-24 z-20 overflow-hidden bg-[#FCF9F5]">
         
         {/* Decorative Floral Background */}
         <img 
@@ -253,6 +285,8 @@ function Index() {
         />
 
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row items-center gap-6 md:gap-12 lg:gap-20 relative z-10">
+          
+          {/* Left Text Block */}
           <div className="w-full lg:w-2/5 text-center lg:text-left mt-2 md:mt-0">
             <h2 className="text-[28px] sm:text-3xl md:text-4xl lg:text-5xl font-serif text-[#302832] leading-tight mb-2 md:mb-6">
               Discover Your <br/>
@@ -263,6 +297,7 @@ function Index() {
             </p>
           </div>
           
+          {/* Right Grid Block */}
           <div className="w-full lg:w-3/5 flex flex-col gap-5 md:gap-6">
             {isLoading ? (
               <div className="flex w-full justify-center opacity-50 py-10"><Loader2 className="animate-spin text-[#C9A15B] w-8 h-8"/></div>
@@ -283,7 +318,7 @@ function Index() {
                        {cat.image_url ? (
                          <img 
                            src={cat.image_url} 
-                           className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700 ease-out pointer-events-none" 
+                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out pointer-events-none" 
                            alt={cat.name} 
                          />
                        ) : (
@@ -292,13 +327,15 @@ function Index() {
                          </div>
                        )}
 
-                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+                       {/* ✨ FIXED: Clean, rich gradient matching the Shop By Price section */}
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                        
-                       <div className="absolute bottom-3 left-4 right-3 md:bottom-4 md:right-4 flex items-end justify-between z-10 pointer-events-none">
-                          <h3 className="text-white font-sans font-bold text-[13px] md:text-lg tracking-wide drop-shadow-sm leading-none">
+                       {/* ✨ FIXED: Generous padding, bottom-left aligned text, clean outline arrow */}
+                       <div className="absolute bottom-0 left-0 w-full p-4 md:p-6 flex items-end justify-between z-10 pointer-events-none">
+                          <h3 className="text-white font-sans font-bold text-sm md:text-[22px] tracking-wide drop-shadow-md leading-none">
                             {cat.name}
                           </h3>
-                          <div className="w-7 h-7 md:w-9 md:h-9 rounded-full border border-white/40 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:text-[#4A1F58] text-white transition-colors backdrop-blur-sm bg-black/20">
+                          <div className="w-7 h-7 md:w-8 md:h-8 rounded-full border-[1.5px] border-white flex items-center justify-center shrink-0 group-hover:bg-white group-hover:text-[#4A1F58] text-white transition-all duration-300">
                              <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
                           </div>
                        </div>
@@ -361,16 +398,7 @@ function Index() {
         </div>
       </section>
 
-      {/* CSS TICKER */}
-      <div className="w-full overflow-hidden whitespace-nowrap py-2.5 border-y border-[#E9D8C3] bg-white flex items-center">
-        <div className="inline-block animate-marquee flex-nowrap flex items-center">
-          {[...Array(6)].map((_, i) => (
-            <span key={i} className="text-[10px] md:text-xs font-sans font-bold text-[#4A1F58] uppercase tracking-[0.2em] mx-6">
-              PAVITRAM DIAMOND JEWELLERY • A OSSAM JEWELLS COMPANY •
-            </span>
-          ))}
-        </div>
-      </div>
+      
 
       <div className="max-w-[1400px] mx-auto flex flex-col gap-16 md:gap-32 pt-12 md:pt-24 pb-12">
         
@@ -433,23 +461,25 @@ function Index() {
         </section>
 
         {/* 6. SHOP BY PRICE */}
-        <section className="relative px-4 md:px-8 py-8 md:py-12 overflow-hidden rounded-xl">
-          {/* ✨ Section-Specific Background */}
+        <section className="relative w-full bg-[#FCF9F5] py-16 md:py-24 mb-4 md:mb-4 overflow-hidden border-t border-[#E9D8C3]">
+        
+          {/* Subtle Floral Watermark */}
           <img 
             src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
             alt="Decorative Floral" 
-            className="absolute inset-0 w-full h-full object-cover opacity-[0.08] pointer-events-none mix-blend-multiply z-0"
+            className="absolute inset-0 w-full h-full object-cover opacity-[0.05] pointer-events-none mix-blend-multiply z-0"
           />
-          <div className="relative z-10">
-            <div className="text-center mb-8 md:mb-12">
+        
+          {/* ✨ FIXED: Added max-w-[1200px] mx-auto px-4 md:px-8 to properly pad the sides */}
+          <div className="relative z-10 max-w-[1200px] mx-auto px-4 md:px-8">
+            <div className="text-center mb-6 md:mb-12">
               <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58]">Shop By Price</h2>
               <p className="text-xs font-sans text-zinc-500 mt-2 tracking-wide">Explore our diverse selections. Find your style.</p>
             </div>
             
-            <div className="flex flex-col gap-3 md:gap-6 max-w-[1200px] mx-auto">
+            <div className="flex flex-col gap-3 md:gap-6">
               
               {/* Item 1: Full-width top banner */}
-              {/* ✨ DESKTOP FIX: Changed md:aspect-[3/1] to md:aspect-[4/1] for a sleeker banner */}
               {PRICE_COLLECTIONS[0] && (
                 <Link to={PRICE_COLLECTIONS[0].link} className="group relative rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] bg-[#E9D8C3] shadow-sm">
                   <img src={PRICE_COLLECTIONS[0].image} alt={PRICE_COLLECTIONS[0].title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -468,7 +498,6 @@ function Index() {
               {/* Items 2 & 3: Side-by-side middle row */}
               <div className="grid grid-cols-2 gap-3 md:gap-6">
                 {[PRICE_COLLECTIONS[1], PRICE_COLLECTIONS[2]].map((item, idx) => item && (
-                  /* ✨ DESKTOP FIX: Changed md:aspect-[4/3] to md:aspect-[2/1] to perfectly match the height of top/bottom banners */
                   <Link key={idx} to={item.link} className="group relative rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] bg-[#E9D8C3] shadow-sm">
                     <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
@@ -483,9 +512,8 @@ function Index() {
                   </Link>
                 ))}
               </div>
-
+              
               {/* Item 4: Full-width bottom banner */}
-              {/* ✨ DESKTOP FIX: Changed md:aspect-[3/1] to md:aspect-[4/1] */}
               {PRICE_COLLECTIONS[3] && (
                 <Link to={PRICE_COLLECTIONS[3].link} className="group relative rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] bg-[#E9D8C3] shadow-sm">
                   <img src={PRICE_COLLECTIONS[3].image} alt={PRICE_COLLECTIONS[3].title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -505,138 +533,284 @@ function Index() {
           </div>
         </section>
 
-        {/* 7. THE ART OF GIFTING */}
-        <section className="relative px-4 md:px-8 py-8 md:py-12 overflow-hidden rounded-xl">
-          {/* ✨ Section-Specific Background */}
+       {/* ========================================================= */}
+        {/* ✨ NEW: PAVITRAM HARVESTING PLAN (Brand Promise Banner Style) */}
+        {/* ========================================================= */}
+        <section className="relative w-full py-16 md:py-24 mb-4 md:mb-4 overflow-hidden group border-y border-[#C9A15B]/20">
+          
+          {/* Background Image (Replace with a relevant lifestyle or jewelry image) */}
+          <img 
+            src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/social4.webp" 
+            alt="Pavitram Harvesting Plan" 
+            className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out"
+          />
+          
+          {/* Royal Purple Brand Overlay */}
+          <div className="absolute inset-0 bg-[#4A1F58]/90 pointer-events-none" />
+          
+          {/* Subtle Decorative Floral Watermark */}
           <img 
             src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
             alt="Decorative Floral" 
-            className="absolute inset-0 w-full h-full object-cover opacity-[0.08] pointer-events-none mix-blend-multiply z-0"
+            className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none mix-blend-overlay z-0"
           />
-          <div className="relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-              <Link to="/category/gifts-for-her" className="group relative overflow-hidden bg-[#4A1F58] rounded-sm aspect-[4/3] md:aspect-[16/9]">
-                 <img src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/gifting1.webp" alt="Gifts for Her" className="w-full h-full object-cover opacity-80 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700" />
-                 <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent pointer-events-none" />
-                 <div className="absolute inset-y-0 left-0 p-8 md:p-12 flex flex-col justify-center w-3/4">
-                   <h2 className="text-3xl md:text-4xl font-serif font-medium text-white mb-3">The Art of Gifting</h2>
-                   <p className="text-xs font-sans text-[#E9D8C3] uppercase tracking-widest mb-6">For Her</p>
-                   <span className="inline-flex items-center text-xs font-sans font-bold text-white uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
-                     Shop Gifts <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                   </span>
-                 </div>
-              </Link>
-              <Link to="/category/anniversary" className="group relative overflow-hidden bg-[#E9D8C3] rounded-sm aspect-[4/3] md:aspect-[16/9]">
-                 <img src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/gifting2.webp" alt="Anniversary Specials" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                 <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full text-center">
-                   <h2 className="text-3xl md:text-4xl font-serif font-medium text-white mb-3">Milestone Moments</h2>
-                   <span className="inline-flex items-center text-xs font-sans font-bold text-white uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
-                     Explore Anniversary <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                   </span>
-                 </div>
-              </Link>
+
+          <div className="relative z-10 max-w-[900px] mx-auto px-4 md:px-8 text-center flex flex-col items-center">
+            
+            {/* Tagline */}
+            <div className="flex items-center gap-3 mb-5 md:mb-6">
+              <div className="h-[1px] w-8 md:w-12 bg-[#C9A15B]/50" />
+              <p className="text-[10px] md:text-xs font-sans font-bold text-[#C9A15B] uppercase tracking-[0.25em] drop-shadow-sm">
+                Invest | Celebrate | Earn
+              </p>
+              <div className="h-[1px] w-8 md:w-12 bg-[#C9A15B]/50" />
             </div>
+            
+            {/* Title */}
+            <h2 className="text-3xl md:text-5xl font-serif font-medium text-white mb-4 md:mb-6 leading-tight drop-shadow-md">
+              The Pavitram Harvesting Plan
+            </h2>
+            
+            {/* Description */}
+            <p className="text-sm md:text-base font-sans text-[#E9D8C3] mb-8 md:mb-10 max-w-2xl leading-relaxed drop-shadow-sm px-2">
+              A systematic gold and diamond savings scheme designed to help you seamlessly plan and save for your next timeless jewelry purchase.
+            </p>
+            
+            {/* CTA Button */}
+            <Link 
+              to="/" 
+              className="inline-flex items-center justify-center bg-transparent border border-[#C9A15B] text-[#C9A15B] hover:bg-[#C9A15B] hover:text-white px-8 md:px-10 py-3.5 md:py-4 text-[11px] font-sans font-bold uppercase tracking-[0.15em] transition-all duration-300 rounded-sm shadow-sm"
+            >
+              Explore The Plan <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+            
           </div>
         </section>
 
-      </div>
-
-      <div className="max-w-[1400px] mx-auto space-y-20 md:space-y-32 pt-16 md:pt-24 pb-16">
-
-        {/* ========================================================= */}
-      {/* ✨ NEW: THE PAVITRAM PROMISES (Elegant Trust Stack) */}
-      {/* ========================================================= */}
-      <section className="bg-[#F7F1E8] py-16 md:py-24 border-t border-[#E9D8C3] relative overflow-hidden">
         
-        {/* Subtle Background Watermark */}
+       {/* ========================================================= */}
+      {/* 7. THE ART OF GIFTING (Alabaster Background for High Contrast) */}
+      {/* ========================================================= */}
+      <section className="relative w-full bg-[#FCF9F5] py-16 md:py-24 mb-4 md:mb-4 overflow-hidden border-t border-[#E9D8C3]">
+        
+        {/* Subtle Floral Watermark */}
         <img 
           src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
           alt="Decorative Floral" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.04] pointer-events-none mix-blend-multiply"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.05] pointer-events-none mix-blend-multiply z-0"
         />
-
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 relative z-10">
+        
+        <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
           
-          <div className="text-center mb-16 md:mb-20">
-            <h2 className="text-3xl md:text-[42px] font-serif text-[#302832] leading-tight">
-              The Pavitram <span className="text-[#C9A15B] italic font-light">Promises</span>
-            </h2>
+          {/* Header Block (Purple Text on Light Background) */}
+          <div className="text-center mb-10 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58]">Shop By Occasions</h2>
+            <p className="text-xs font-sans text-zinc-500 mt-3 tracking-widest uppercase font-medium">Explore our collections. Curated for you.</p>
+            <div className="w-12 h-0.5 bg-[#C9A15B] mx-auto mt-6" />
           </div>
-
-          {/* Desktop: Horizontal Flow | Mobile: Vertical Stack */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 lg:gap-16">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             
-            {/* Promise 1 */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5 md:gap-6 group">
-              <div className="w-16 h-16 shrink-0 rounded-full bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
-                <Award className="w-7 h-7 text-[#C9A15B] stroke-[1.5]" />
-              </div>
-              <div>
-                <h3 className="text-base font-serif font-medium text-[#4A1F58] mb-2">Trusted & Certified Jewellery</h3>
-                <p className="text-[13px] font-sans text-zinc-600 leading-relaxed">
-                  Crafted with the trust and reliability of the Ossam Jewels legacy, we use 100% BIS Hallmark gold and certified natural diamonds for all our products.
-                </p>
-              </div>
-            </div>
+            <Link 
+              to="/Search" 
+              search={{ collection: 'gifts-for-her' }} 
+              className="group relative overflow-hidden bg-[#302832] rounded-sm aspect-[4/3] md:aspect-[16/9] shadow-md"
+            >
+               <img src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/gifting1.webp" alt="Gifts for Her" className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-all duration-700" />
+               <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none" />
+               <div className="absolute inset-y-0 left-0 p-8 md:p-12 flex flex-col justify-center w-3/4">
+                 <h2 className="text-3xl md:text-4xl font-serif font-medium text-white mb-3 drop-shadow-md">The Art of Gifting</h2>
+                 <p className="text-[10px] md:text-xs font-sans text-[#E9D8C3] font-bold uppercase tracking-widest mb-6 drop-shadow-sm">For Her</p>
+                 <span className="inline-flex items-center text-xs font-sans font-bold text-white uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
+                   Shop Gifts <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                 </span>
+               </div>
+            </Link>
 
-            {/* Promise 3 */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5 md:gap-6 group">
-              <div className="w-16 h-16 shrink-0 rounded-full bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
-                <RefreshCw className="w-7 h-7 text-[#C9A15B] stroke-[1.5]" />
-              </div>
-              <div>
-                <h3 className="text-base font-serif font-medium text-[#4A1F58] mb-2">Hassle-free Exchanges</h3>
-                <p className="text-[13px] font-sans text-zinc-600 leading-relaxed">
-                  Enjoy absolute peace of mind with our transparent 15-day return policy, and a guaranteed lifetime exchange & depreciated buyback program.
-                </p>
-              </div>
-            </div>
-
-            {/* Promise 4 */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5 md:gap-6 group">
-              <div className="w-16 h-16 shrink-0 rounded-full bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
-                <ShieldCheck className="w-7 h-7 text-[#C9A15B] stroke-[1.5]" />
-              </div>
-              <div>
-                <h3 className="text-base font-serif font-medium text-[#4A1F58] mb-2">Fully Insured Shipping</h3>
-                <p className="text-[13px] font-sans text-zinc-600 leading-relaxed">
-                  Your investment is secure. Every piece is dispatched in tamper-proof packaging and is 100% insured until the moment it is safely handed to you.
-                </p>
-              </div>
-            </div>
+            <Link 
+              to="/Search" 
+              search={{ collection: 'anniversary' }} 
+              className="group relative overflow-hidden bg-[#302832] rounded-sm aspect-[4/3] md:aspect-[16/9] shadow-md"
+            >
+               <img src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/gifting2.webp" alt="Anniversary Specials" className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-all duration-700" />
+               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+               <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full text-center">
+                 <h2 className="text-3xl md:text-4xl font-serif font-medium text-white mb-3 drop-shadow-md">Milestone Moments</h2>
+                 <span className="inline-flex items-center text-xs font-sans font-bold text-white uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
+                   Explore Anniversary <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                 </span>
+               </div>
+            </Link>
 
           </div>
         </div>
       </section>
 
-        {/* ✨ NEW: 9. SOCIAL PROOF (Spotted in Pavitram) */}
-        <section className="relative px-4 md:px-8">
-          <div className="flex flex-col items-center text-center mb-10 md:mb-16">
-            <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58] mb-3">Spotted in Pavitram</h2>
-            <p className="text-xs font-sans text-zinc-500 uppercase tracking-widest mb-6">Tag @PavitramJewellery to be featured</p>
-            <div className="w-12 h-0.5 bg-[#C9A15B]" />
-          </div>
+       {/* ========================================================= */}
+        {/* 8. THE PAVITRAM PROMISES (Elegant Trust Stack) */}
+        {/* ========================================================= */}
+        <section className="bg-[#FDFCFB] py-10 md:py-24 mb-4 md:mb-4 border-t border-[#E9D8C3] relative overflow-hidden">
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-            {/* Hardcoded mock social images for now - replace URLs with real customer photos */}
-            {[1, 2, 3, 4].map((item) => (
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" key={item} className="group relative aspect-square bg-[#E9D8C3] overflow-hidden cursor-pointer">
-                <img 
-                  src={`https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/social${item}.webp`} 
-                  alt="Customer wearing Pavitram" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                />
-                <div className="absolute inset-0 bg-[#4A1F58]/0 group-hover:bg-[#4A1F58]/40 transition-colors duration-300 flex items-center justify-center">
-                  <Instagram className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform group-hover:scale-110" />
+          {/* Subtle Background Watermark */}
+          <img 
+            src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+            alt="Decorative Floral" 
+            className="absolute inset-0 w-full h-full object-cover opacity-[0.12] pointer-events-none mix-blend-multiply"
+          />
+
+          <div className="max-w-[1400px] mx-auto px-4 md:px-8 relative z-10">
+            
+            <div className="text-center mb-8 md:mb-20">
+              <h2 className="text-3xl md:text-[42px] font-serif text-[#302832] leading-tight">
+                The Pavitram <span className="text-[#C9A15B] italic font-light">Promises</span>
+              </h2>
+            </div>
+
+            {/* ✨ FIXED: Parent wrapper is now a single white box on mobile with dividers, resetting to normal on desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-10 lg:gap-16 bg-white md:bg-transparent p-6 md:p-0 rounded-2xl md:rounded-sm shadow-sm md:shadow-none border border-[#E9D8C3]/60 md:border-0 divide-y divide-[#E9D8C3]/50 md:divide-y-0 relative z-10">
+              
+              {/* Promise 1 */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 md:gap-6 group pb-6 md:pb-0 pt-2 md:pt-0">
+                <div className="w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-full bg-[#FDFCFB] md:bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
+                  <Award className="w-6 h-6 md:w-7 md:h-7 text-[#C9A15B] stroke-[1.5]" />
                 </div>
-              </a>
-            ))}
+                <div>
+                  <h3 className="text-sm md:text-base font-serif font-medium text-[#4A1F58] mb-1.5 md:mb-2">Trusted & Certified Jewellery</h3>
+                  <p className="text-[11px] md:text-[13px] font-sans text-zinc-600 leading-relaxed">
+                    Crafted with the trust and reliability of the Ossam Jewels legacy, we use 100% BIS Hallmark gold and certified natural diamonds for all our products.
+                  </p>
+                </div>
+              </div>
+
+              {/* Promise 2 */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 md:gap-6 group py-6 md:py-0">
+                <div className="w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-full bg-[#FDFCFB] md:bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
+                  <RefreshCw className="w-6 h-6 md:w-7 md:h-7 text-[#C9A15B] stroke-[1.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm md:text-base font-serif font-medium text-[#4A1F58] mb-1.5 md:mb-2">Hassle-free Exchanges</h3>
+                  <p className="text-[11px] md:text-[13px] font-sans text-zinc-600 leading-relaxed">
+                    Enjoy absolute peace of mind with our transparent 15-day return policy, and a guaranteed lifetime exchange & depreciated buyback program.
+                  </p>
+                </div>
+              </div>
+
+              {/* Promise 3 */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 md:gap-6 group pt-6 md:pt-0 pb-2 md:pb-0">
+                <div className="w-14 h-14 md:w-16 md:h-16 shrink-0 rounded-full bg-[#FDFCFB] md:bg-white border border-[#C9A15B]/30 flex items-center justify-center group-hover:border-[#C9A15B] group-hover:shadow-sm transition-all">
+                  <ShieldCheck className="w-6 h-6 md:w-7 md:h-7 text-[#C9A15B] stroke-[1.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm md:text-base font-serif font-medium text-[#4A1F58] mb-1.5 md:mb-2">Fully Insured Shipping</h3>
+                  <p className="text-[11px] md:text-[13px] font-sans text-zinc-600 leading-relaxed">
+                    Your investment is secure. Every piece is dispatched in tamper-proof packaging and is 100% insured until the moment it is safely handed to you.
+                  </p>
+                </div>
+              </div>
+
+            </div>
           </div>
         </section>
 
+       {/* ========================================================= */}
+      {/* ✨ NEW: 9. THE PAVITRAM EXPERIENCE (YouTube Shorts Autoplay) */}
+      {/* ========================================================= */}
+      <section className="bg-white py-16 md:py-24 mb-4 md:mb-4border-t border-[#E9D8C3] relative">
+        <div className="max-w-[1400px] mx-auto px-0 md:px-8">
+          
+          <div className="flex flex-col items-center text-center mb-10 md:mb-16 px-4">
+            <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58] mb-3 uppercase tracking-wide">
+              The Pavitram Experience
+            </h2>
+            <p className="text-[10px] md:text-xs font-sans font-bold text-[#C9A15B] uppercase tracking-[0.2em] mb-6">
+              Adorned By You, Shared With Pride
+            </p>
+            <div className="w-12 h-0.5 bg-[#C9A15B]" />
+          </div>
+
+          <div className="relative group max-w-[1200px] mx-auto">
+            
+            {/* Desktop Navigation Arrows (Hidden on Mobile) */}
+            <button 
+              onClick={() => scrollStories('left')}
+              className="hidden md:flex absolute -left-6 lg:-left-12 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-6 h-6" strokeWidth={1.5} />
+            </button>
+
+            <button 
+              onClick={() => scrollStories('right')}
+              className="hidden md:flex absolute -right-6 lg:-right-12 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-6 h-6" strokeWidth={1.5} />
+            </button>
+
+            {/* Horizontal Scrolling Container */}
+            <div 
+              ref={storyScrollRef}
+              className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-[12.5vw] md:px-0"
+            >
+              {/* ✨ PUT YOUR YOUTUBE IDs HERE */}
+              {[
+                { videoId: "3g3Gm6G0MDM" },
+                { videoId: "kIr8aS7P6Ow" },
+                { videoId: "A8kWks6Vj08" }, // <-- 3rd video (Centered on mobile load)
+                { videoId: "ZaDO_B-DenY" },
+                { videoId: "uJXARohAjIY" },
+              ].map((story, index) => (
+                <div 
+                  key={index} 
+                  className="shrink-0 w-[75vw] md:w-[320px] aspect-[9/16] relative snap-center rounded-sm overflow-hidden bg-[#302832] shadow-md border border-[#E9D8C3]/20"
+                >
+                  {/* YouTube Iframe Embedded with Autoplay & Loop */}
+                  <iframe
+                    className="absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none" // Scaled slightly to hide YT borders
+                    src={`https://www.youtube.com/embed/${story.videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.videoId}&playsinline=1&rel=0&modestbranding=1`}
+                    title={`Pavitram Experience ${index + 1}`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                  
+                  {/* Subtle gradient to ensure text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                  
+                  {/* Refined Text Overlay matching the reference image */}
+                  <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col items-center text-center pointer-events-none">
+                    <h4 className="font-serif text-white text-lg tracking-[0.15em] drop-shadow-md">PAVITRAM</h4>
+                    <p className="text-[10px] md:text-[11px] font-sans text-white font-bold px-4 py-1">
+                      Diamond Jewellery
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+          
+          {/* Mobile Bottom Navigation Arrows */}
+          <div className="mt-4 flex justify-center md:hidden items-center gap-6">
+            <button 
+              onClick={() => scrollStories('left')}
+              className="w-10 h-10 bg-white border border-[#E9D8C3] rounded-full flex items-center justify-center text-[#4A1F58] hover:bg-[#F7F1E8] shadow-sm transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button 
+              onClick={() => scrollStories('right')}
+              className="w-10 h-10 bg-white border border-[#E9D8C3] rounded-full flex items-center justify-center text-[#4A1F58] hover:bg-[#F7F1E8] shadow-sm transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+          </div>
+
+        </div>
+      </section>
+
         {/* ✨ UPGRADED: 10. NEWSLETTER CAPTURE (Minimalist Centered with Original Content) */}
-        <section className="relative px-4 md:px-8 py-20 md:py-32 overflow-hidden border-t border-[#E9D8C3] mt-12">
+        <section className="relative px-4 md:px-8 py-20 md:py-32  overflow-hidden border-t border-[#E9D8C3] mb-4">
           {/* ✨ Section-Specific Background (Beige + Floral Overlay) */}
           <div className="absolute inset-0 bg-[#F7F1E8] z-0" />
           <img 
@@ -688,18 +862,23 @@ function Index() {
         </section>
       </div>
 
-      {/* ✨ UPGRADED: 11. ELEGANT STORE LOCATOR (Responsive, Fixed Heights, Clear Buttons) */}
-      <section className="relative w-full bg-[#F7F1E8] py-16 md:py-24 border-t border-[#E9D8C3] overflow-hidden mt-12">
-        {/* ✨ Section-Specific Background (Beige + Floral Overlay) */}
-        <img 
-          src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
-          alt="Decorative Floral" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.15] pointer-events-none mix-blend-multiply z-0"
-        />
+      {/* ✨ UPGRADED: 11. ELEGANT STORE LOCATOR (Photographic Background & Frosted Glass) */}
+      <section className="relative w-full py-16 md:py-28 border-t border-[#E9D8C3] overflow-hidden mt-12">
+        
+        {/* ✨ Store Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/store-front.webp" /* <-- REPLACE WITH YOUR ACTUAL STORE IMAGE URL */
+            alt="Pavitram Boutique" 
+            className="w-full h-full object-cover object-center"
+          />
+          {/* Subtle dark overlay to ensure the white frosted card pops perfectly */}
+          <div className="absolute inset-0 bg-black/20" />
+        </div>
         
         <div className="relative z-10 max-w-[1100px] mx-auto px-4 md:px-8">
           {/* Elegant Frosted Card Container */}
-          <div className="bg-white/80 backdrop-blur-xl border border-[#E9D8C3] rounded-sm p-6 md:p-16 lg:p-20 text-center shadow-[0_10px_40px_rgba(74,31,88,0.03)]">
+          <div className="bg-white/85 backdrop-blur-xl border border-white/50 rounded-sm p-6 md:p-16 lg:p-20 text-center shadow-[0_20px_60px_rgba(0,0,0,0.1)]">
             
             <h2 className="text-3xl md:text-[42px] font-serif font-medium text-[#4A1F58] mb-3 md:mb-6 leading-tight">
               Experience Pavitram <span className="text-[#C9A15B] italic font-light">In-Person</span>
@@ -709,7 +888,7 @@ function Index() {
               Try it on before you buy. With premium boutiques across the city, experiencing our brilliance is effortless. Enter your pincode to find a store near you.
             </p>
 
-            {/* ✨ FIXED: Responsive Search Bar Layout with Forced Heights */}
+            {/* Responsive Search Bar Layout with Forced Heights */}
             <div className="max-w-2xl mx-auto flex flex-col md:flex-row items-stretch gap-4 md:gap-0">
               
               {/* Input & Detect Location Wrapper */}
@@ -757,6 +936,16 @@ function Index() {
           </div>
         </div>
       </section>
+      {/* CSS TICKER */}
+        <div className="w-full overflow-hidden whitespace-nowrap py-2.5 border-y border-[#E9D8C3] bg-white flex items-center">
+        <div className="inline-block animate-marquee flex-nowrap flex items-center">
+          {[...Array(6)].map((_, i) => (
+            <span key={i} className="text-[10px] md:text-xs font-sans font-bold text-[#4A1F58] uppercase tracking-[0.2em] mx-6">
+              PAVITRAM DIAMOND JEWELLERY • A OSSAM JEWELS COMPANY •
+            </span>
+          ))}
+        </div>
+      </div>
 
     </div>
   );

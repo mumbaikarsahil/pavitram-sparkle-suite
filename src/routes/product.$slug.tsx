@@ -346,10 +346,15 @@ export default function ProductPage() {
             
             <div className="flex items-start justify-between gap-4 mb-2">
               <div>
-                <h1 className="text-3xl md:text-[38px] font-medium text-[#302832] leading-tight font-serif mb-2">
+                {/* ✨ FIXED TYPOGRAPHY: Product Category Tag */}
+                <p className="text-[10px] font-sans font-bold text-[#C9A15B] mb-2 tracking-[0.2em] uppercase">
+                  {product.category?.name || "Jewellery"}
+                </p>
+                {/* ✨ FIXED TYPOGRAPHY: Product Title */}
+                <h1 className="text-2xl md:text-[32px] font-sans font-medium text-[#302832] leading-tight mb-2">
                   {product.title}
                 </h1>
-                <p className="text-[10px] font-sans font-bold text-zinc-400 mt-1 tracking-[0.2em] uppercase">
+                <p className="text-[10px] font-sans font-medium text-zinc-400 mt-1 tracking-[0.1em] uppercase">
                   {product.sku_reference ? `SKU: ${product.sku_reference}` : 'Exclusive Design'}
                 </p>
               </div>
@@ -370,11 +375,12 @@ export default function ProductPage() {
               <span className="text-xs font-sans text-zinc-500 hover:text-[#4A1F58] transition-colors">{avgRating} ({reviews.length} reviews)</span>
             </div>
 
+            {/* ✨ FIXED TYPOGRAPHY: Product Price */}
             <div className="flex items-end gap-3 mb-8 mt-2">
-              <span className="text-2xl md:text-3xl font-sans font-bold text-[#302832]">
+              <span className="text-2xl md:text-[32px] font-sans font-bold text-[#302832] tracking-wide">
                 ₹{Number(product.mrp).toLocaleString('en-IN')}
               </span>
-              <span className="text-[10px] font-sans font-medium text-zinc-500 mb-1.5 uppercase tracking-widest">(MRP Inclusive of all taxes)</span>
+              <span className="text-[10px] font-sans font-medium text-zinc-500 mb-2 uppercase tracking-widest">(MRP Inclusive of all taxes)</span>
             </div>
 
             {/* Quick Specs Highlight Box */}
@@ -519,7 +525,7 @@ export default function ProductPage() {
                 )}
               </div>
 
-              {/* SHIPPING & e POLICY ACCORDION/BLOCK */}
+              {/* SHIPPING & EXCHANGE POLICY ACCORDION/BLOCK */}
               <div className="bg-[#F7F1E8]/30 border border-[#E9D8C3] p-5 rounded-sm">
                  <h4 className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-[#4A1F58] flex items-center gap-2 mb-3">
                     <Info className="w-3.5 h-3.5" /> Shipping & Exchange Policy
@@ -617,14 +623,15 @@ export default function ProductPage() {
                           </div>
                         </div>
                         
-                        <div className="flex flex-col text-center px-1">
-                          <span className="text-[9px] md:text-[10px] font-sans font-medium text-zinc-500 uppercase tracking-[0.15em] mb-1 line-clamp-1">
+                        {/* ✨ FIXED TYPOGRAPHY: Related Products Content Area */}
+                        <div className="flex flex-col text-left px-1">
+                          <span className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.15em] mb-1 line-clamp-1">
                             {product.category?.name || "Jewellery"}
                           </span>
-                          <h4 className="text-[12px] md:text-[14px] font-serif font-medium text-[#302832] line-clamp-1 mb-1.5 group-hover:text-[#C9A15B] transition-colors">
+                          <h4 className="text-[13px] md:text-[14px] font-sans font-medium text-[#302832] line-clamp-2 leading-snug mb-1.5 group-hover:text-[#4A1F58] transition-colors">
                             {related.title}
                           </h4>
-                          <span className="text-[13px] md:text-[16px] font-sans font-bold text-[#4A1F58]">
+                          <span className="text-[14px] md:text-[15px] font-sans font-bold tracking-wide text-[#302832]">
                             ₹{Number(related.mrp).toLocaleString('en-IN')}
                           </span>
                         </div>
@@ -679,7 +686,6 @@ export default function ProductPage() {
                               <div>
                                 <h5 className="text-sm font-sans font-bold text-[#302832] flex items-center gap-1.5">
                                   {review.user_name} 
-                                  {/* ✨ TypeScript Error Fix: Wrapped Icon in a standard span for the title attribute */}
                                   {review.is_verified && (
                                     <span title="Verified Buyer" className="inline-flex items-center">
                                       <ShieldCheck className="w-3.5 h-3.5 text-[#C9A15B]" />
