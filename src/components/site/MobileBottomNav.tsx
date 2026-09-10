@@ -35,7 +35,7 @@ export function MobileBottomNav() {
 
   return (
     <nav 
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E9D8C3] shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#FCF9F5] backdrop-blur-md border-t border-[#E9D8C3] shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out"
       // Accounts for iOS safe areas at the bottom of the screen
       style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
     >

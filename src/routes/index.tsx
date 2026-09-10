@@ -11,6 +11,8 @@ import {
   ChevronRight,
   ChevronLeft
 } from "lucide-react";
+import { DynamicIsland } from "@/components/site/DynamicIsland";
+import { FloatingHelp } from "@/components/site/FloatingHelp";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute('/')({
@@ -786,6 +788,8 @@ function Index() {
           ))}
         </div>
       </div>
+  
+      <FloatingHelp />
 
     </div>
   );

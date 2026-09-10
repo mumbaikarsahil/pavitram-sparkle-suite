@@ -51,6 +51,9 @@ export function Header() {
   const [isLocating, setIsLocating] = useState(false);
   const [hasPromptedLocation, setHasPromptedLocation] = useState(false);
   
+  // ✨ Scroll State for Glassmorphism
+  const [isScrolled, setIsScrolled] = useState(false);
+  
   const locationMenuRef = useRef<HTMLDivElement>(null);
 
   // ✨ FIXED: Handle clicking outside the location dropdown securely for both mobile and desktop
@@ -100,6 +103,22 @@ export function Header() {
     };
 
     fetchCategories();
+  }, []);
+  
+  // ✨ Scroll detection effect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 0;
+      setIsScrolled(isScrolled);
+    };
+    
+    // Check on initial load
+    handleScroll();
+    
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const topCategories = categories.filter((cat) => !cat.parent_id);
@@ -189,7 +208,8 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#4A1F58] md:bg-[#FCF9F5]/95 backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-colors duration-300 font-sans md:border-b md:border-[#E9D8C3]/50">
+    // ✨ FIXED: Added conditional classes for mobile glassmorphism with transitions. Kept original desktop glass.
+    <header className={`sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans md:border-b md:border-[#E9D8C3]/50 md:bg-[#FCF9F5]/95 backdrop-blur-md ${isScrolled ? 'bg-[#4A1F58]/80' : 'bg-[#4A1F58]'}`}>
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
