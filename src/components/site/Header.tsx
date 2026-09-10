@@ -53,12 +53,18 @@ export function Header() {
   
   const locationMenuRef = useRef<HTMLDivElement>(null);
 
-  // Handle clicking outside the location dropdown to close it
+  // ✨ FIXED: Handle clicking outside the location dropdown securely for both mobile and desktop
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (locationMenuRef.current && !locationMenuRef.current.contains(event.target as Node)) {
-        setIsLocationMenuOpen(false);
+      // If clicking inside the dropdown itself, do nothing
+      if (locationMenuRef.current && locationMenuRef.current.contains(event.target as Node)) {
+        return;
       }
+      // If clicking a toggle button, let the onClick handler deal with it
+      if ((event.target as Element).closest('.location-toggle-btn')) {
+        return;
+      }
+      setIsLocationMenuOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -140,7 +146,8 @@ export function Header() {
     }
   };
 
-  const handleLocationMenuClick = () => {
+  const handleLocationMenuClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     const willOpen = !isLocationMenuOpen;
     setIsLocationMenuOpen(willOpen);
     
@@ -188,49 +195,61 @@ export function Header() {
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-     {/* ✨ 1. MOBILE NAVIGATION BAR (Hard-anchored to prevent load shifts) */}
-     <div className="md:hidden h-[60px] relative w-full">
+      {/* ✨ 1. MOBILE NAVIGATION BAR (Matches Desktop functionality + Brand Guidelines) */}
+      <div className="md:hidden h-[60px] w-full flex items-center justify-between px-3 sm:px-4 relative">
         
-        {/* LEFT: Menu Button */}
-        <button 
-          onClick={() => setIsMobileMenuOpen(true)}
-          aria-label="Menu" 
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-white hover:text-[#C9A15B] transition-colors p-1 z-10"
-        >
-          <Menu strokeWidth={1.5} className="w-6 h-6" />
-        </button>
-        
-        {/* CENTER: Pavitram Stacked Text */}
-        <Link 
-          to="/" 
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center pt-0.5 w-max z-10"
-        >
-          <span 
-            className="font-serif text-[18px] tracking-[0.2em] text-white uppercase leading-none"
-            style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
+        {/* LEFT: Menu & Logo */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Menu" 
+            className="text-white hover:text-[#C9A15B] transition-colors p-1 -ml-1"
           >
-            Pavitram
-          </span>
-          <span className="font-sans text-[7.5px] font-bold tracking-[0.3em] text-white/90 uppercase leading-none mt-1 ml-0.5">
-            Diamond Jewellery
-          </span>
-        </Link>
+            <Menu strokeWidth={1.5} className="w-[22px] h-[22px]" />
+          </button>
+          
+          <Link 
+            to="/" 
+            className="flex flex-col justify-center pt-0.5"
+          >
+            <span 
+              className="font-serif text-[17px] tracking-[0.18em] text-white uppercase leading-none"
+              style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
+            >
+              Pavitram
+            </span>
+            <span className="font-sans text-[6px] font-bold tracking-[0.25em] text-white/90 uppercase leading-none mt-1 ml-0.5">
+              Diamond Jewellery
+            </span>
+          </Link>
+        </div>
 
-        {/* RIGHT: Logo Container */}
-        <Link 
-          to="/" 
-          className="absolute right-2 top-1/2 -translate-y-1/2 shrink-0 flex items-center justify-center z-10 w-[65px] h-[45px] bg-white rounded-none overflow-hidden shadow-sm"
-        >
-          <Logo className="h-12 w-auto max-w-none scale-[1] object-cover origin-center transform" />
-        </Link>
+        {/* RIGHT: Quick Action Icons */}
+        <div className="flex items-center gap-4 sm:gap-5">
+          <button 
+            onClick={handleLocationMenuClick}
+            className="text-white hover:text-[#C9A15B] transition-colors location-toggle-btn"
+            aria-label="Find Store"
+          >
+            <Store strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] pointer-events-none" />
+          </button>
+          <Link to="/Search" className="text-white hover:text-[#C9A15B] transition-colors" aria-label="Search">
+            <Search strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+          </Link>
+          <Link to="/wishlist" className="text-white hover:text-[#C9A15B] transition-colors" aria-label="Wishlist">
+            <Heart strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+          </Link>
+          <Link to="/cart" className="text-white hover:text-[#C9A15B] transition-colors relative" aria-label="Cart">
+            <ShoppingBag strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#4A1F58]" />
+          </Link>
+        </div>
 
       </div>
 
       {/* ✨ 2. DESKTOP NAVIGATION BAR */}
-      {/* ✨ FIXED: Reduced py-3 to py-1.5 to keep header height tight while allowing bigger logo */}
       <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-1.5 items-center justify-between gap-8">
         
-        {/* ✨ FIXED: Increased Logo Size to 60px */}
         <div className="shrink-0 flex items-center">
           <Link to="/">
             <Logo className="h-[60px] w-auto object-contain" />
@@ -254,13 +273,13 @@ export function Header() {
 
         <div className="flex items-center gap-6 h-full">
           {/* Luxury Find a Store Selector */}
-          <div className="relative flex h-full items-center" ref={locationMenuRef}>
+          <div className="relative flex h-full items-center">
             <div 
               onClick={handleLocationMenuClick}
-              className="flex h-10 items-center gap-3 cursor-pointer bg-white border border-[#E9D8C3] hover:border-[#C9A15B] hover:shadow-sm px-4 rounded-sm transition-all group"
+              className="flex h-10 items-center gap-3 cursor-pointer bg-white border border-[#E9D8C3] hover:border-[#C9A15B] hover:shadow-sm px-4 rounded-sm transition-all group location-toggle-btn"
             >
-              <Store strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B] group-hover:text-[#4A1F58] transition-colors" />
-              <div className="flex flex-col items-start pr-1 justify-center">
+              <Store strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B] group-hover:text-[#4A1F58] transition-colors pointer-events-none" />
+              <div className="flex flex-col items-start pr-1 justify-center pointer-events-none">
                 <span className="text-[8px] text-zinc-400 font-sans font-bold uppercase tracking-[0.2em] leading-none mb-1">
                    {nearestStore ? `Store: ${nearestStore.name.split(' ')[0]}` : 'Find a Store'}
                 </span>
@@ -270,66 +289,6 @@ export function Header() {
                 </span>
               </div>
             </div>
-
-            {isLocationMenuOpen && (
-              <div className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-8 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="text-center mb-6">
-                  <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Boutique</h4>
-                  <p className="text-xs font-sans text-zinc-500 leading-relaxed">Unlock accurate delivery dates, Try-at-Home availability, and In-store exclusive designs.</p>
-                </div>
-
-                <div className="flex items-center border-b border-[#E9D8C3] focus-within:border-[#4A1F58] pb-2 mb-6 transition-colors">
-                   <button onClick={handleLocateMe} className="pr-3 text-zinc-400 hover:text-[#C9A15B] transition-colors" title="Use exact GPS location">
-                      <Navigation strokeWidth={1.5} className={`w-4 h-4 ${isLocating ? 'animate-pulse text-[#C9A15B]' : ''}`} />
-                   </button>
-                   <input
-                      type="text"
-                      placeholder="City or Pincode"
-                      value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
-                      className="flex-1 outline-none text-sm font-sans text-[#302832] bg-transparent placeholder:text-zinc-400"
-                   />
-                   <button onClick={handleLocationSearch} className="text-[10px] font-bold text-[#4A1F58] uppercase tracking-[0.15em] hover:text-[#C9A15B] transition-colors">
-                      {activeLocationLabel ? 'Change' : 'Search'}
-                   </button>
-                </div>
-
-                {nearestStore ? (
-                   <div 
-                     onClick={() => { setIsLocationMenuOpen(false); navigate({ to: "/stores", search: { q: nearestStore.name } }); }}
-                     className="flex items-center gap-4 bg-[#F7F1E8] border border-[#E9D8C3] rounded-sm p-4 hover:border-[#C9A15B] transition-all mb-4 group cursor-pointer"
-                   >
-                      <div className="bg-[#4A1F58] text-white rounded-sm w-12 h-12 flex flex-col items-center justify-center shrink-0">
-                         {nearestDistance !== null ? (
-                           <>
-                             <span className="text-sm font-serif font-medium leading-none">{nearestDistance.toFixed(1)}</span>
-                             <span className="text-[8px] font-sans font-medium tracking-widest mt-1 opacity-80 uppercase">KM</span>
-                           </>
-                         ) : (
-                           <Store strokeWidth={1.5} className="w-5 h-5 opacity-90" />
-                         )}
-                      </div>
-                      <div className="flex-1">
-                         <span className="text-[9px] font-sans font-bold uppercase tracking-[0.15em] text-zinc-500 block mb-1">Nearest Boutique</span>
-                         <span className="text-sm font-serif font-medium text-[#302832] flex items-center justify-between group-hover:text-[#4A1F58] transition-colors">
-                            <span className="truncate max-w-[150px]">{nearestStore.name}</span> 
-                            <ChevronRight strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B]" />
-                         </span>
-                      </div>
-                   </div>
-                ) : locationQuery && (
-                  <div className="text-center py-4 text-xs font-sans text-rose-500 bg-rose-50 rounded-sm mb-4">
-                    No stores found matching your search.
-                  </div>
-                )}
-                <div className="text-center mt-2 pt-2">
-                   <Link to="/stores" className="text-[10px] font-sans font-bold text-[#C9A15B] hover:text-[#4A1F58] uppercase tracking-[0.15em] inline-flex items-center justify-center gap-1 group transition-colors">
-                      View All Boutiques <ChevronRight strokeWidth={2} className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                   </Link>
-                </div>
-              </div>
-            )}
           </div>
 
           <nav className="flex items-center gap-5">
@@ -346,6 +305,70 @@ export function Header() {
           </nav>
         </div>
       </div>
+
+      {/* ✨ GLOBAL LOCATION DROPDOWN (Works for both Mobile & Desktop buttons) */}
+      {isLocationMenuOpen && (
+        <div 
+          ref={locationMenuRef}
+          className="absolute top-[60px] md:top-[68px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div className="text-center mb-6">
+            <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Boutique</h4>
+            <p className="text-xs font-sans text-zinc-500 leading-relaxed">Unlock accurate delivery dates, Try-at-Home availability, and In-store exclusive designs.</p>
+          </div>
+
+          <div className="flex items-center border-b border-[#E9D8C3] focus-within:border-[#4A1F58] pb-2 mb-6 transition-colors">
+             <button onClick={handleLocateMe} className="pr-3 text-zinc-400 hover:text-[#C9A15B] transition-colors" title="Use exact GPS location">
+                <Navigation strokeWidth={1.5} className={`w-4 h-4 ${isLocating ? 'animate-pulse text-[#C9A15B]' : ''}`} />
+             </button>
+             <input
+                type="text"
+                placeholder="City or Pincode"
+                value={locationQuery}
+                onChange={(e) => setLocationQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                className="flex-1 outline-none text-sm font-sans text-[#302832] bg-transparent placeholder:text-zinc-400"
+             />
+             <button onClick={handleLocationSearch} className="text-[10px] font-bold text-[#4A1F58] uppercase tracking-[0.15em] hover:text-[#C9A15B] transition-colors">
+                {activeLocationLabel ? 'Change' : 'Search'}
+             </button>
+          </div>
+
+          {nearestStore ? (
+             <div 
+               onClick={() => { setIsLocationMenuOpen(false); navigate({ to: "/stores", search: { q: nearestStore.name } }); }}
+               className="flex items-center gap-4 bg-[#F7F1E8] border border-[#E9D8C3] rounded-sm p-4 hover:border-[#C9A15B] transition-all mb-4 group cursor-pointer"
+             >
+                <div className="bg-[#4A1F58] text-white rounded-sm w-12 h-12 flex flex-col items-center justify-center shrink-0">
+                   {nearestDistance !== null ? (
+                     <>
+                       <span className="text-sm font-serif font-medium leading-none">{nearestDistance.toFixed(1)}</span>
+                       <span className="text-[8px] font-sans font-medium tracking-widest mt-1 opacity-80 uppercase">KM</span>
+                     </>
+                   ) : (
+                     <Store strokeWidth={1.5} className="w-5 h-5 opacity-90" />
+                   )}
+                </div>
+                <div className="flex-1">
+                   <span className="text-[9px] font-sans font-bold uppercase tracking-[0.15em] text-zinc-500 block mb-1">Nearest Boutique</span>
+                   <span className="text-sm font-serif font-medium text-[#302832] flex items-center justify-between group-hover:text-[#4A1F58] transition-colors">
+                      <span className="truncate max-w-[150px]">{nearestStore.name}</span> 
+                      <ChevronRight strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B]" />
+                   </span>
+                </div>
+             </div>
+          ) : locationQuery && (
+            <div className="text-center py-4 text-xs font-sans text-rose-500 bg-rose-50 rounded-sm mb-4">
+              No stores found matching your search.
+            </div>
+          )}
+          <div className="text-center mt-2 pt-2">
+             <Link to="/stores" className="text-[10px] font-sans font-bold text-[#C9A15B] hover:text-[#4A1F58] uppercase tracking-[0.15em] inline-flex items-center justify-center gap-1 group transition-colors">
+                View All Boutiques <ChevronRight strokeWidth={2} className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+             </Link>
+          </div>
+        </div>
+      )}
 
       {/* ✨ 3. DESKTOP CATEGORY NAVIGATION BAR */}
       <div
