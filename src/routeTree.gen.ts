@@ -17,6 +17,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
+import { Route as SoonRouteImport } from './routes/Soon'
 import { Route as ShopRouteImport } from './routes/Shop'
 import { Route as SearchRouteImport } from './routes/Search'
 import { Route as ComingSoonRouteImport } from './routes/ComingSoon'
@@ -68,6 +69,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoonRoute = SoonRouteImport.update({
+  id: '/Soon',
+  path: '/Soon',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
+  '/Soon': typeof SoonRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
+  '/Soon': typeof SoonRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/ComingSoon': typeof ComingSoonRoute
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
+  '/Soon': typeof SoonRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
+    | '/Soon'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
+    | '/Soon'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/ComingSoon'
     | '/Search'
     | '/Shop'
+    | '/Soon'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -273,6 +285,7 @@ export interface RootRouteChildren {
   ComingSoonRoute: typeof ComingSoonRoute
   SearchRoute: typeof SearchRoute
   ShopRoute: typeof ShopRoute
+  SoonRoute: typeof SoonRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
@@ -346,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/cart'
       fullPath: '/cart'
       preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/Soon': {
+      id: '/Soon'
+      path: '/Soon'
+      fullPath: '/Soon'
+      preLoaderRoute: typeof SoonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/Shop': {
@@ -441,6 +461,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComingSoonRoute: ComingSoonRoute,
   SearchRoute: SearchRoute,
   ShopRoute: ShopRoute,
+  SoonRoute: SoonRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,

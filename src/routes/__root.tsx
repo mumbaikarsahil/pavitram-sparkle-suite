@@ -20,6 +20,12 @@ import { MobileBottomNav } from "../components/site/MobileBottomNav";
 import { Toaster } from "../components/ui/sonner";
 import { CartProvider } from '@/context/CartContext';
 
+// ✨ IMPORT YOUR COMING SOON COMPONENT
+import { ComingSoon } from "./Soon"; 
+
+// ✨ TOGGLE THIS TO FALSE TO INSTANTLY LAUNCH THE FULL WEBSITE
+const IS_MAINTENANCE_MODE = true;
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -127,16 +133,22 @@ function RootComponent() {
   return (
   <CartProvider>
     <QueryClientProvider client={queryClient}>
-      {/* ✨ WRAPPED APP IN PREMIUM SMOOTH SCROLL */}
       <ReactLenis root options={{ lerp: 0.07, duration: 1.2, smoothWheel: true }}>
-        <div className="flex min-h-screen flex-col pb-16 md:pb-0">
-          {!isAuthRoute && <Header />}
-          <main className="flex-1">
-            <Outlet />
-          </main>
-          {!isAuthRoute && <Footer />}
-          {!isAuthRoute && <MobileBottomNav />}
-        </div>
+        
+        {/* ✨ THE ROADBLOCK LOGIC */}
+        {IS_MAINTENANCE_MODE ? (
+          <ComingSoon />
+        ) : (
+          <div className="flex min-h-screen flex-col pb-16 md:pb-0">
+            {!isAuthRoute && <Header />}
+            <main className="flex-1">
+              <Outlet />
+            </main>
+            {!isAuthRoute && <Footer />}
+            {!isAuthRoute && <MobileBottomNav />}
+          </div>
+        )}
+
       </ReactLenis>
       <Toaster />
     </QueryClientProvider>

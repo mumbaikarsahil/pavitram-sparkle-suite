@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Store, MapPin, Phone, Clock, Search, Navigation } from "lucide-react";
+import { Store, MapPin, Phone, Clock, Search, Navigation, ArrowRight, Loader2 } from "lucide-react";
 
 export const STORES_DATA = [
   { name: "Chhatrapati Sambhajinagar", address: "Veer Marg, Keli Bazar, Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 431001", phone: null, working_hours: null, lat: 19.8762, lng: 75.3433 },
@@ -44,8 +44,8 @@ interface StoreLocatorProps {
 export function StoreLocator({ 
   limit, 
   showSearch = true, 
-  title = "Find in Store near you!", 
-  subtitle = "Try it on before you buy it. Visit our nearest boutique.",
+  title = "Find a Boutique near you", 
+  subtitle = "Experience our brilliance in person. Search by city or pincode.",
   initialQuery = "",
   initialLocation = null
 }: StoreLocatorProps) {
@@ -53,6 +53,7 @@ export function StoreLocator({
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(initialLocation);
   const [isLocating, setIsLocating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Sync state if URL props change
   useEffect(() => {
@@ -60,6 +61,7 @@ export function StoreLocator({
     if (initialLocation) setUserLocation(initialLocation);
   }, [initialQuery, initialLocation]);
 
+  // GPS Locate Me Feature
   const handleLocateMe = () => {
     setIsLocating(true);
     if ("geolocation" in navigator) {
@@ -81,10 +83,44 @@ export function StoreLocator({
     }
   };
 
+  // ✨ UPGRADED: Smart Geocoding Search
+  const handleTextSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setUserLocation(null);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Free OpenStreetMap Geocoding API converts Pincode/City to Lat/Lng
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ', India')}&format=json&limit=1`);
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        // Success! We found coordinates for what they typed.
+        setUserLocation({
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        });
+      } else {
+        // Fallback: If map API fails (e.g. they typed a specific shop name), revert to text matching
+        setUserLocation(null); 
+      }
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      setUserLocation(null);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // The logic that displays and sorts the stores
   const displayStores = useMemo(() => {
     let result = [...STORES_DATA].map(store => ({ ...store, distance: null as number | null }));
 
     if (userLocation) {
+      // Sort by absolute nearest KM distance
       result = result.map(store => ({
         ...store,
         distance: getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, store.lat, store.lng)
@@ -92,12 +128,14 @@ export function StoreLocator({
       result.sort((a, b) => (a.distance || 0) - (b.distance || 0));
     } 
     else if (searchQuery.trim().length > 0) {
+      // Fallback: Smart Text Multi-keyword matching
       const query = searchQuery.toLowerCase().trim();
-      result = result.filter(store => 
-        store.name.toLowerCase().includes(query) || 
-        store.address.toLowerCase().includes(query) ||
-        (query.length === 6 && store.address.includes(query))
-      );
+      const keywords = query.split(/\s+/);
+      
+      result = result.filter(store => {
+        const storeSearchableText = `${store.name} ${store.address} ${store.phone || ""}`.toLowerCase();
+        return keywords.every(keyword => storeSearchableText.includes(keyword));
+      });
     }
 
     return limit ? result.slice(0, limit) : result;
@@ -116,14 +154,24 @@ export function StoreLocator({
               <Search className="absolute left-3 w-4 h-4 text-zinc-400" />
               <input 
                 type="text" 
-                placeholder="Search City or Pincode..." 
+                placeholder="Enter Pincode or City..." 
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setUserLocation(null);
+                  if (e.target.value === '') setUserLocation(null);
                 }}
-                className="w-full h-10 pl-9 pr-4 text-sm focus:outline-none bg-transparent"
+                onKeyDown={(e) => e.key === 'Enter' && handleTextSearch()}
+                className="w-full h-10 pl-9 pr-12 text-sm focus:outline-none bg-transparent"
               />
+              {/* Added dedicated search button inside input for mobile UX */}
+              <button 
+                onClick={handleTextSearch} 
+                disabled={isSearching}
+                className="absolute right-1 w-8 h-8 flex items-center justify-center rounded-full bg-[#4A0B49]/5 hover:bg-[#4A0B49]/10 text-[#4A0B49] transition-colors"
+                title="Search Location"
+              >
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              </button>
             </div>
             
             {/* Mobile Divider */}
@@ -186,7 +234,7 @@ export function StoreLocator({
       
       {displayStores.length === 0 && (
         <div className="text-center py-12 text-zinc-500 text-sm">
-          No stores found matching your search.
+          No stores found matching your search. Try another location.
         </div>
       )}
     </div>

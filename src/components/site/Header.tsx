@@ -26,11 +26,6 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   return R * c; 
 }
 
-const extractPincode = (address: string): number | null => {
-  const match = address.match(/\b\d{6}\b/);
-  return match ? parseInt(match[0], 10) : null;
-};
-
 export function Header() {
   const navigate = useNavigate({ from: '/' });
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,21 +44,16 @@ export function Header() {
   const [nearestStore, setNearestStore] = useState<any | null>(null);
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [hasPromptedLocation, setHasPromptedLocation] = useState(false);
-  
-  // ✨ Scroll State for Glassmorphism
-  const [isScrolled, setIsScrolled] = useState(false);
   
   const locationMenuRef = useRef<HTMLDivElement>(null);
 
-  // ✨ FIXED: Handle clicking outside the location dropdown securely for both mobile and desktop
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // If clicking inside the dropdown itself, do nothing
       if (locationMenuRef.current && locationMenuRef.current.contains(event.target as Node)) {
         return;
       }
-      // If clicking a toggle button, let the onClick handler deal with it
       if ((event.target as Element).closest('.location-toggle-btn')) {
         return;
       }
@@ -73,7 +63,6 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -103,22 +92,6 @@ export function Header() {
     };
 
     fetchCategories();
-  }, []);
-  
-  // ✨ Scroll detection effect
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 0;
-      setIsScrolled(isScrolled);
-    };
-    
-    // Check on initial load
-    handleScroll();
-    
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const topCategories = categories.filter((cat) => !cat.parent_id);
@@ -175,109 +148,132 @@ export function Header() {
     }
   };
 
-  const handleLocationSearch = () => {
-    const query = locationQuery.trim().toLowerCase();
+  const handleLocationSearch = async () => {
+    const query = locationQuery.trim();
     if (!query) return;
 
-    let closest = null;
+    setIsSearching(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ', India')}&format=json&limit=1`);
+      const data = await response.json();
 
-    if (/^\d{6}$/.test(query)) {
-      let minDiff = Infinity;
-      const pin = parseInt(query, 10);
-      
-      STORES_DATA.forEach(store => {
-        const storePin = extractPincode(store.address);
-        if (storePin) {
-          const diff = Math.abs(storePin - pin);
-          if (diff < minDiff) {
-            minDiff = diff;
-            closest = store;
+      let closest = null;
+      let minDistance = Infinity;
+
+      if (data && data.length > 0) {
+        const userLat = parseFloat(data[0].lat);
+        const userLng = parseFloat(data[0].lon);
+
+        STORES_DATA.forEach(store => {
+          if (store.lat && store.lng) {
+            const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closest = store;
+            }
           }
-        }
-      });
-    } else {
-      closest = STORES_DATA.find(store => 
-        store.name.toLowerCase().includes(query) || 
-        store.address.toLowerCase().includes(query)
-      ) || null;
-    }
+        });
 
-    setNearestStore(closest);
-    setNearestDistance(null); 
-    setActiveLocationLabel(query.toUpperCase());
+        setNearestStore(closest);
+        setNearestDistance(minDistance);
+        setActiveLocationLabel(query.toUpperCase());
+      } else {
+        const lowerQuery = query.toLowerCase();
+        const keywords = lowerQuery.split(/\s+/);
+        
+        const matches = STORES_DATA.filter(store => {
+          const storeSearchableText = `${store.name} ${store.address} ${store.phone || ""}`.toLowerCase();
+          return keywords.every(keyword => storeSearchableText.includes(keyword));
+        });
+
+        if (matches.length > 0) {
+          setNearestStore(matches[0]);
+          setNearestDistance(null);
+          setActiveLocationLabel(query.toUpperCase());
+        } else {
+          setNearestStore(null);
+          setNearestDistance(null);
+        }
+      }
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      setNearestStore(null);
+      setNearestDistance(null);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   return (
-    // ✨ FIXED: Added conditional classes for mobile glassmorphism with transitions. Kept original desktop glass.
-    <header className={`sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans md:border-b md:border-[#E9D8C3]/50 md:bg-[#FCF9F5]/95 backdrop-blur-md ${isScrolled ? 'bg-[#4A1F58]/80' : 'bg-[#4A1F58]'}`}>
+    <header className="sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans border-b border-[#E9D8C3]/50 bg-[#FCF9F5]/95 backdrop-blur-md">
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      {/* ✨ 1. MOBILE NAVIGATION BAR (Matches Desktop functionality + Brand Guidelines) */}
+      {/* ✨ TOP Purple Strip */}
+      <div className="md:hidden w-full h-1 bg-[#4A1F58]"></div>
+
+      {/* ✨ 1. MOBILE NAVIGATION BAR */}
       <div className="md:hidden h-[60px] w-full flex items-center justify-between px-3 sm:px-4 relative">
-        
-        {/* LEFT: Menu & Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             aria-label="Menu" 
-            className="text-white hover:text-[#C9A15B] transition-colors p-1 -ml-1"
+            className="text-[#302832] hover:text-[#C9A15B] transition-colors p-1 -ml-1 shrink-0"
           >
             <Menu strokeWidth={1.5} className="w-[22px] h-[22px]" />
           </button>
           
-          <Link 
-            to="/" 
-            className="flex flex-col justify-center pt-0.5"
-          >
-            <span 
-              className="font-serif text-[17px] tracking-[0.18em] text-white uppercase leading-none"
-              style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
-            >
-              Pavitram
-            </span>
-            <span className="font-sans text-[6px] font-bold tracking-[0.25em] text-white/90 uppercase leading-none mt-1 ml-0.5">
-              Diamond Jewellery
-            </span>
+          <Link to="/" className="flex items-center gap-2">
+            {/* ✨ RESTORED: Official Logo Component replacing the img tag */}
+            <Logo className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 scale-[1.2]" />
+            <div className="flex flex-col justify-center pt-0.5">
+              <span 
+                className="font-serif text-[14px] sm:text-[16px] tracking-[0.18em] text-[#4A1F58] uppercase leading-none"
+                style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
+              >
+                Pavitram
+              </span>
+              <span className="font-sans text-[5.5px] sm:text-[6px] font-bold tracking-[0.25em] text-[#C9A15B] uppercase leading-none mt-1 ml-0.5">
+                Diamond Jewellery
+              </span>
+            </div>
           </Link>
         </div>
 
-        {/* RIGHT: Quick Action Icons */}
-        <div className="flex items-center gap-4 sm:gap-5">
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <button 
             onClick={handleLocationMenuClick}
-            className="text-white hover:text-[#C9A15B] transition-colors location-toggle-btn"
+            className="text-[#302832] hover:text-[#C9A15B] transition-colors location-toggle-btn"
             aria-label="Find Store"
           >
             <Store strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] pointer-events-none" />
           </button>
-          <Link to="/Search" className="text-white hover:text-[#C9A15B] transition-colors" aria-label="Search">
+          <Link to="/Search" className="text-[#302832] hover:text-[#C9A15B] transition-colors" aria-label="Search">
             <Search strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
           </Link>
-          <Link to="/wishlist" className="text-white hover:text-[#C9A15B] transition-colors" aria-label="Wishlist">
+          <Link to="/wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors" aria-label="Wishlist">
             <Heart strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
           </Link>
-          <Link to="/cart" className="text-white hover:text-[#C9A15B] transition-colors relative" aria-label="Cart">
+          <Link to="/cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative" aria-label="Cart">
             <ShoppingBag strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#4A1F58]" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
           </Link>
         </div>
-
       </div>
+
+     
 
       {/* ✨ 2. DESKTOP NAVIGATION BAR */}
       <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-1.5 items-center justify-between gap-8">
-        
         <div className="shrink-0 flex items-center">
           <Link to="/">
             <Logo className="h-[60px] w-auto object-contain" />
           </Link>
         </div>
 
-        {/* Luxury Search Bar */}
-        <div className="flex-1 max-w-[500px] h-10 flex items-center rounded-sm border border-[#E9D8C3] bg-[#F7F1E8]/50 px-4 hover:border-[#C9A15B] focus-within:border-[#C9A15B] focus-within:bg-white focus-within:shadow-sm transition-all group">
+        <div className="flex-1 max-w-[500px] h-10 flex items-center rounded-sm border border-[#E9D8C3] bg-white px-4 hover:border-[#C9A15B] focus-within:border-[#C9A15B] focus-within:shadow-sm transition-all group">
           <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
           <input
             type="search"
@@ -292,7 +288,6 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-6 h-full">
-          {/* Luxury Find a Store Selector */}
           <div className="relative flex h-full items-center">
             <div 
               onClick={handleLocationMenuClick}
@@ -320,13 +315,13 @@ export function Header() {
             </Link>
             <Link to="/cart" aria-label="Cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative">
               <ShoppingBag strokeWidth={1.5} className="h-[22px] w-[22px]" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_white]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
             </Link>
           </nav>
         </div>
       </div>
 
-      {/* ✨ GLOBAL LOCATION DROPDOWN (Works for both Mobile & Desktop buttons) */}
+      {/* ✨ GLOBAL LOCATION DROPDOWN */}
       {isLocationMenuOpen && (
         <div 
           ref={locationMenuRef}
@@ -349,7 +344,12 @@ export function Header() {
                 onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
                 className="flex-1 outline-none text-sm font-sans text-[#302832] bg-transparent placeholder:text-zinc-400"
              />
-             <button onClick={handleLocationSearch} className="text-[10px] font-bold text-[#4A1F58] uppercase tracking-[0.15em] hover:text-[#C9A15B] transition-colors">
+             <button 
+                onClick={handleLocationSearch} 
+                disabled={isSearching}
+                className="text-[10px] font-bold text-[#4A1F58] uppercase tracking-[0.15em] hover:text-[#C9A15B] transition-colors disabled:opacity-50 flex items-center gap-1"
+             >
+                {isSearching && <Loader2 className="w-3 h-3 animate-spin" />}
                 {activeLocationLabel ? 'Change' : 'Search'}
              </button>
           </div>
@@ -377,7 +377,7 @@ export function Header() {
                    </span>
                 </div>
              </div>
-          ) : locationQuery && (
+          ) : locationQuery && !isSearching && (
             <div className="text-center py-4 text-xs font-sans text-rose-500 bg-rose-50 rounded-sm mb-4">
               No stores found matching your search.
             </div>
@@ -490,36 +490,22 @@ export function Header() {
         )}
       </div>
 
-      {/* ✨ 4. MOBILE SLIDE-OUT DRAWER (Bulletproof 100dvh Layout) */}
+      {/* ✨ 4. MOBILE SLIDE-OUT DRAWER */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[100] md:hidden">
-          {/* Dark Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
-            onClick={() => setIsMobileMenuOpen(false)} 
-          />
-          
-          {/* The Drawer - Uses h-[100dvh] to prevent address bar collapse */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
           <div className="absolute top-0 left-0 w-[85%] max-w-[340px] h-[100dvh] bg-[#F7F1E8] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
-            
-            {/* Drawer Header (Fixed at top) */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-[#E9D8C3] shrink-0 bg-white shadow-sm">
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)} 
-                className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2"
-              >
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2">
                 <X strokeWidth={2} className="w-6 h-6" />
               </button>
               <div className="flex-1 flex justify-center">
                 <Logo className="h-10 w-auto object-contain" />
               </div>
-              <div className="w-10 shrink-0"></div> {/* Spacer for perfect centering */}
+              <div className="w-10 shrink-0"></div>
             </div>
 
-            {/* Scrollable Content Zone */}
             <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col">
-              
-              {/* Category List */}
               <div className="py-2 flex-1">
                 {isLoadingCats ? (
                    <div className="flex justify-center py-10">
@@ -555,25 +541,13 @@ export function Header() {
                           )}
                         </div>
                         
-                        {/* Subcategories Dropdown */}
                         {isExpanded && children.length > 0 && (
                           <div className="pl-4 pb-4 flex flex-col gap-4 animate-in slide-in-from-top-1 fade-in duration-200">
-                            <Link 
-                              to="/category/$slug" 
-                              params={{ slug: parent.slug }} 
-                              onClick={() => setIsMobileMenuOpen(false)} 
-                              className="text-xs font-sans font-bold text-[#C9A15B] uppercase tracking-widest"
-                            >
+                            <Link to="/category/$slug" params={{ slug: parent.slug }} onClick={() => setIsMobileMenuOpen(false)} className="text-xs font-sans font-bold text-[#C9A15B] uppercase tracking-widest">
                               All {parent.name}
                             </Link>
                             {children.map(sub => (
-                              <Link 
-                                key={sub.id} 
-                                to="/category/$slug" 
-                                params={{ slug: sub.slug }} 
-                                onClick={() => setIsMobileMenuOpen(false)} 
-                                className="text-[13px] font-sans text-[#302832] hover:text-[#C9A15B]"
-                              >
+                              <Link key={sub.id} to="/category/$slug" params={{ slug: sub.slug }} onClick={() => setIsMobileMenuOpen(false)} className="text-[13px] font-sans text-[#302832] hover:text-[#C9A15B]">
                                 {sub.name}
                               </Link>
                             ))}
@@ -585,7 +559,6 @@ export function Header() {
                 )}
               </div>
 
-              {/* Promo Cards (Pushed to bottom of scroll area) */}
               <div className="px-4 py-6 space-y-4 shrink-0 mt-auto">
                 <div className="bg-white border border-[#E9D8C3] p-4 rounded-sm shadow-sm relative overflow-hidden">
                   <div className="relative z-10">
@@ -609,7 +582,6 @@ export function Header() {
               </div>
             </div>
 
-            {/* Dark Footer (Fixed at the absolute bottom) */}
             <div className="bg-[#4A1F58] p-6 flex flex-col gap-5 text-white shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] relative z-20">
                <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
                  Log In / Sign Up
@@ -621,11 +593,9 @@ export function Header() {
                  Cart
                </Link>
             </div>
-
           </div>
         </div>
       )}
-
     </header>
   );
 }
