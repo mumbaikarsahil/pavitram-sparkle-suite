@@ -1,23 +1,25 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Store, MapPin, Phone, Clock, Search, Navigation, ArrowRight, Loader2 } from "lucide-react";
 
+// Reordered to match the image exactly, removed Sangamner, added Ratnagiri, and flagged Parbhani as Coming Soon.
 export const STORES_DATA = [
-  { name: "Chhatrapati Sambhajinagar", address: "Veer Marg, Keli Bazar, Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 431001", phone: null, working_hours: null, lat: 19.8762, lng: 75.3433 },
-  { name: "Parbhani", address: "Near Gandhi Park Main Gate, Gandhi Park, Parbhani 431401, Maharashtra", phone: null, working_hours: null, lat: 19.2668, lng: 76.7748 },
-  { name: "Chakan", address: "Wafgaonkar Rajlaxmi Jewellers, Main Road, Manik Chowk, Chakan, Maharashtra 410501", phone: null, working_hours: null, lat: 18.7505, lng: 73.8567 },
-  { name: "Dombivli", address: "Inside M/s ShreeShri Devi Jewels India Pvt. Ltd., Shop No. 1, Ground Floor, Rakhi Apartment, Near Sarvesh H. Tilak Road, Dombivli, Thane - 421201", phone: "8657003848", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.2183, lng: 73.0867 },
-  { name: "Sangamner", address: "Bus Stand Complex, Sangamner - 422605", phone: null, working_hours: null, lat: 19.5761, lng: 74.2053 },
-  { name: "Parel", address: "Inside Navaratna Jewellers, Shop No. 1, Saraf Building, Near Maharani Sarees, Dr. B. Ambedkar Road, Parel (E), Mumbai - 400012", phone: "8657003835", working_hours: "11:00 AM to 8:00 PM (Monday closed)", lat: 18.9953, lng: 72.8397 },
-  { name: "Badlapur", address: "Inside Bhagirathi Jewellers, Shop No. 4, Deepmani Apartment, Opp. Railway Gate, Badlapur, Thane, Maharashtra - 421503", phone: "8657000961", working_hours: "11:00 AM to 8:00 PM (Monday closed)", lat: 19.1551, lng: 73.2372 },
+  { name: "Andheri (W)", address: "Viral Apartment, A Wing, 3rd Floor (No Lift), S.V. Road, Opp. Andheri Shoppers Stop, Above Hotel Radha Krishna, Andheri West, Mumbai - 400058", phone: "+91 8657003815", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.1136, lng: 72.8411 },
+  { name: "Borivali (W)", address: "Shop No. 16, Sundar Vichar, Opp. Amar Jyoti Building & Bank of Baroda, Shimpoli Road, Kastur Park, Borivali (W), Mumbai - 400092", phone: "8657003816", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.2343, lng: 72.8427 },
+  { name: "Navi Mumbai Vashi", address: "Shop No. 3, A Wing, Gagangiri CHS, Opp. Peshwai Sarees, Abhyudaya Bank Marg, Plot No. 47, Sector 17, Vashi, Navi Mumbai - 400703", phone: "8657003817", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.0745, lng: 72.9978 },
+  { name: "Virar (W)", address: "Siddhi Manora, Near Desai Hospital, Beside Kamal Medical, Virar West, Maharashtra 401303", phone: "8657003819", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.4580, lng: 72.7938 },
+  { name: "Ghatkopar (E)", address: "Shop No. 2, Madhav Apt., Jawahar Road, Next to Samrat Hotel, Ghatkopar East, Mumbai - 400077", phone: "+91 8657003849", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.0790, lng: 72.9080 },
+  { name: "Breach Candy", address: "43, Bhulabhai Desai Marg, Breach Candy, Cumballa Hill, Mumbai, Maharashtra - 400026", phone: "8657003833", working_hours: "11:30 AM to 8:00 PM (All days open)", lat: 18.9722, lng: 72.8055 },
   { name: "Thane", address: "Inside Mahavir Jewellers, Pathare Bldg CHS, Near Canara Bank, Gokhale Road, Naupada, Thane (W) - 400602", phone: "8657003834", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.1973, lng: 72.9644 },
   { name: "Kurla", address: "Inside Ratnadeep Jewellers, 318, Yashodabai Shivkumar Chawl, Shop No. 1 & 2, Opp. New Mill Road, Kurla West, Mumbai - 400070", phone: "8657003830", working_hours: "11:00 AM to 8:00 PM (Thursday closed)", lat: 19.0726, lng: 72.8795 },
+  { name: "Parel", address: "Inside Navaratna Jewellers, Shop No. 1, Saraf Building, Near Maharani Sarees, Dr. B. Ambedkar Road, Parel (E), Mumbai - 400012", phone: "8657003835", working_hours: "11:00 AM to 8:00 PM (Monday closed)", lat: 18.9953, lng: 72.8397 },
   { name: "Kamothe", address: "Inside Kalash Jewellers, Shop No. 15, Uma Shiv Corner CHS, Plot No. 22A, Sector 19, Kamothe, Navi Mumbai - 410209", phone: "8657000965", working_hours: "11:00 AM to 8:00 PM (Friday closed)", lat: 19.0251, lng: 73.0939 },
-  { name: "Navi Mumbai Vashi", address: "Shop No. 3, A Wing, Gagangiri CHS, Opp. Peshwai Sarees, Abhyudaya Bank Marg, Plot No. 47, Sector 17, Vashi, Navi Mumbai - 400703", phone: "8657003817", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.0745, lng: 72.9978 },
-  { name: "Borivali (W)", address: "Shop No. 16, Sundar Vichar, Opp. Amar Jyoti Building & Bank of Baroda, Shimpoli Road, Kastur Park, Borivali (W), Mumbai - 400092", phone: "8657003816", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.2343, lng: 72.8427 },
-  { name: "Virar (W)", address: "Siddhi Manora, Near Desai Hospital, Beside Kamal Medical, Virar West, Maharashtra 401303", phone: "8657003819", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.4580, lng: 72.7938 },
-  { name: "Andheri (W)", address: "Viral Apartment, A Wing, 3rd Floor (No Lift), S.V. Road, Opp. Andheri Shoppers Stop, Above Hotel Radha Krishna, Andheri West, Mumbai - 400058", phone: "+91 8657003815", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.1136, lng: 72.8411 },
-  { name: "Breach Candy", address: "43, Bhulabhai Desai Marg, Breach Candy, Cumballa Hill, Mumbai, Maharashtra - 400026", phone: "8657003833", working_hours: "11:30 AM to 8:00 PM (All days open)", lat: 18.9722, lng: 72.8055 },
-  { name: "Ghatkopar (E)", address: "Shop No. 2, Madhav Apt., Jawahar Road, Next to Samrat Hotel, Ghatkopar East, Mumbai - 400077", phone: "+91 8657003849", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.0790, lng: 72.9080 }
+  { name: "Dombivli", address: "Inside M/s ShreeShri Devi Jewels India Pvt. Ltd., Shop No. 1, Ground Floor, Rakhi Apartment, Near Sarvesh H. Tilak Road, Dombivli, Thane - 421201", phone: "8657003848", working_hours: "11:00 AM to 8:00 PM (All days open)", lat: 19.2183, lng: 73.0867 },
+  { name: "Badlapur", address: "Inside Bhagirathi Jewellers, Shop No. 4, Deepmani Apartment, Opp. Railway Gate, Badlapur, Thane, Maharashtra - 421503", phone: "8657000961", working_hours: "11:00 AM to 8:00 PM (Monday closed)", lat: 19.1551, lng: 73.2372 },
+  { name: "Chakan", address: "Wafgaonkar Rajlaxmi Jewellers, Main Road, Manik Chowk, Chakan, Maharashtra 410501", phone: null, working_hours: null, lat: 18.7505, lng: 73.8567 },
+  { name: "Ratnagiri", address: "Shop No. 6, 7, Kanhaiyalal Complex, opp. Bus Stand, Police Head Quarters, Ratnagiri, Maharashtra 415612", phone: null, working_hours: null, lat: 16.9902, lng: 73.3120 },
+  { name: "Chhatrapati Sambhajinagar", address: "Veer Marg, Keli Bazar, Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 431001", phone: null, working_hours: null, lat: 19.8762, lng: 75.3433 },
+  // Parbhani flagged as Coming Soon
+  { name: "Parbhani", address: "Near Gandhi Park Main Gate, Gandhi Park, Parbhani 431401, Maharashtra", phone: null, working_hours: null, lat: 19.2668, lng: 76.7748, isComingSoon: true }
 ];
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -55,13 +57,11 @@ export function StoreLocator({
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Sync state if URL props change
   useEffect(() => {
     if (initialQuery) setSearchQuery(initialQuery);
     if (initialLocation) setUserLocation(initialLocation);
   }, [initialQuery, initialLocation]);
 
-  // GPS Locate Me Feature
   const handleLocateMe = () => {
     setIsLocating(true);
     if ("geolocation" in navigator) {
@@ -83,7 +83,6 @@ export function StoreLocator({
     }
   };
 
-  // ✨ UPGRADED: Smart Geocoding Search
   const handleTextSearch = async () => {
     const query = searchQuery.trim();
     if (!query) {
@@ -93,18 +92,15 @@ export function StoreLocator({
 
     setIsSearching(true);
     try {
-      // Free OpenStreetMap Geocoding API converts Pincode/City to Lat/Lng
       const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ', India')}&format=json&limit=1`);
       const data = await response.json();
 
       if (data && data.length > 0) {
-        // Success! We found coordinates for what they typed.
         setUserLocation({
           lat: parseFloat(data[0].lat),
           lng: parseFloat(data[0].lon)
         });
       } else {
-        // Fallback: If map API fails (e.g. they typed a specific shop name), revert to text matching
         setUserLocation(null); 
       }
     } catch (error) {
@@ -115,12 +111,10 @@ export function StoreLocator({
     }
   };
 
-  // The logic that displays and sorts the stores
   const displayStores = useMemo(() => {
     let result = [...STORES_DATA].map(store => ({ ...store, distance: null as number | null }));
 
     if (userLocation) {
-      // Sort by absolute nearest KM distance
       result = result.map(store => ({
         ...store,
         distance: getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, store.lat, store.lng)
@@ -128,7 +122,6 @@ export function StoreLocator({
       result.sort((a, b) => (a.distance || 0) - (b.distance || 0));
     } 
     else if (searchQuery.trim().length > 0) {
-      // Fallback: Smart Text Multi-keyword matching
       const query = searchQuery.toLowerCase().trim();
       const keywords = query.split(/\s+/);
       
@@ -163,7 +156,6 @@ export function StoreLocator({
                 onKeyDown={(e) => e.key === 'Enter' && handleTextSearch()}
                 className="w-full h-10 pl-9 pr-12 text-sm focus:outline-none bg-transparent"
               />
-              {/* Added dedicated search button inside input for mobile UX */}
               <button 
                 onClick={handleTextSearch} 
                 disabled={isSearching}
@@ -174,7 +166,6 @@ export function StoreLocator({
               </button>
             </div>
             
-            {/* Mobile Divider */}
             <div className="w-full h-[1px] bg-zinc-100 sm:hidden" />
             
             <button 
@@ -199,11 +190,15 @@ export function StoreLocator({
                   <span className="line-clamp-1">{store.name}</span>
                 </h4>
                 
-                {store.distance !== null && (
+                {store.isComingSoon ? (
+                  <span className="text-[10px] font-bold px-2 py-1 rounded shrink-0 whitespace-nowrap bg-[#C9A15B]/10 text-[#C9A15B]">
+                    Coming Soon
+                  </span>
+                ) : store.distance !== null ? (
                   <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 whitespace-nowrap ${i === 0 ? 'bg-[#4A0B49]/10 text-[#4A0B49]' : 'bg-zinc-100 text-zinc-500'}`}>
                     {store.distance.toFixed(1)} km
                   </span>
-                )}
+                ) : null}
               </div>
               
               <div className="space-y-2 mb-6">
@@ -225,9 +220,22 @@ export function StoreLocator({
                 )}
               </div>
             </div>
-            <button className="w-full border border-zinc-200 text-zinc-700 font-bold text-[11px] md:text-xs py-2.5 md:py-3 rounded-lg group-hover:bg-[#4A0B49] group-hover:border-[#4A0B49] group-hover:text-white transition-all uppercase tracking-widest mt-auto">
-              Book a Visit
-            </button>
+            
+            {/* Dynamic CTA Button */}
+            {store.isComingSoon ? (
+              <div className="w-full bg-zinc-50 text-zinc-400 font-bold text-[11px] md:text-xs py-2.5 md:py-3 rounded-lg text-center uppercase tracking-widest mt-auto cursor-not-allowed">
+                Opening Soon
+              </div>
+            ) : (
+              <a 
+                href={`https://wa.me/918356834764?text=${encodeURIComponent(`Hi! I would like to book a visit to the Pavitram ${store.name} boutique.\n\nLocation: ${store.address}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full border border-zinc-200 text-zinc-700 font-bold text-[11px] md:text-xs py-2.5 md:py-3 rounded-lg group-hover:bg-[#4A0B49] group-hover:border-[#4A0B49] group-hover:text-white transition-all uppercase tracking-widest mt-auto block text-center"
+              >
+                Book a Visit
+              </a>
+            )}
           </div>
         ))}
       </div>
