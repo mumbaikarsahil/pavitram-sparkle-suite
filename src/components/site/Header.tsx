@@ -33,11 +33,11 @@ export function Header() {
   const [activeParent, setActiveParent] = useState<Category | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // ✨ Mobile Menu State
+  // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedMobileCat, setExpandedMobileCat] = useState<string | null>(null);
 
-  // --- Location Pop-up State ---
+  // Location Pop-up State
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
   const [activeLocationLabel, setActiveLocationLabel] = useState<string | null>(null);
@@ -211,65 +211,61 @@ export function Header() {
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      {/* ✨ TOP Purple Strip */}
       <div className="md:hidden w-full h-1 bg-[#4A1F58]"></div>
 
       {/* ✨ 1. MOBILE NAVIGATION BAR */}
-      <div className="md:hidden h-[60px] w-full flex items-center justify-between px-3 sm:px-4 relative">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <div className="md:hidden h-[64px] w-full flex items-center justify-between px-4 relative bg-[#FCF9F5]">
+        
+        {/* Left Side: Menu + Horizontal Logo Lockup */}
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             aria-label="Menu" 
-            className="text-[#302832] hover:text-[#C9A15B] transition-colors p-1 -ml-1 shrink-0"
+            className="text-[#302832] hover:text-[#C9A15B] transition-colors shrink-0"
           >
-            <Menu strokeWidth={1.5} className="w-[22px] h-[22px]" />
+            <Menu strokeWidth={1.2} className="w-7 h-7" />
           </button>
           
-          <Link to="/" className="flex items-center gap-2">
-            {/* ✨ RESTORED: Official Logo Component replacing the img tag */}
-            <Logo className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 scale-[1.2]" />
-            <div className="flex flex-col justify-center pt-0.5">
-              <span 
-                className="font-serif text-[14px] sm:text-[16px] tracking-[0.18em] text-[#4A1F58] uppercase leading-none"
-                style={{ fontFamily: "'Cinzel', 'Trajan Pro', 'Baskerville', 'Cormorant Garamond', serif" }}
-              >
-                Pavitram
-              </span>
-              <span className="font-sans text-[5.5px] sm:text-[6px] font-bold tracking-[0.25em] text-[#C9A15B] uppercase leading-none mt-1 ml-0.5">
-                Diamond Jewellery
-              </span>
-            </div>
+          <Link to="/" className="flex items-center gap-2 pl-1">
+          <Logo className="h-14 w-auto object-contain shrink-0" />
+            {/* ✨ PROVISION FOR LOGO TEXT IMAGE */}
+            <img 
+              src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
+              alt="Pavitram Diamond Jewellery" 
+              className="h-8 sm:h-10 w-auto object-contain shrink-0" 
+            />
           </Link>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        {/* Right Side: Icons */}
+        <div className="flex items-center gap-3.5 shrink-0">
           <button 
             onClick={handleLocationMenuClick}
             className="text-[#302832] hover:text-[#C9A15B] transition-colors location-toggle-btn"
             aria-label="Find Store"
           >
-            <Store strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] pointer-events-none" />
+            <Store strokeWidth={1.2} className="w-[22px] h-[22px] pointer-events-none" />
           </button>
           <Link to="/Search" className="text-[#302832] hover:text-[#C9A15B] transition-colors" aria-label="Search">
-            <Search strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+            <Search strokeWidth={1.2} className="w-[22px] h-[22px]" />
           </Link>
-          <Link to="/wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors" aria-label="Wishlist">
-            <Heart strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+          <Link to="/wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors hidden sm:block" aria-label="Wishlist">
+            <Heart strokeWidth={1.2} className="w-[22px] h-[22px]" />
           </Link>
           <Link to="/cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative" aria-label="Cart">
-            <ShoppingBag strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
+            <ShoppingBag strokeWidth={1.2} className="w-[22px] h-[22px]" />
+            <span className="absolute -top-0.5 -right-1 w-2.5 h-2.5 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
           </Link>
         </div>
       </div>
 
-     
-
       {/* ✨ 2. DESKTOP NAVIGATION BAR */}
-      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-1.5 items-center justify-between gap-8">
+      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-2 items-center justify-between gap-8">
+        
         <div className="shrink-0 flex items-center">
-          <Link to="/">
-            <Logo className="h-[60px] w-auto object-contain" />
+          <Link to="/" className="flex items-center gap-3">
+            <Logo className="h-[46px] w-auto object-contain shrink-0" />
+            
           </Link>
         </div>
 
@@ -325,7 +321,7 @@ export function Header() {
       {isLocationMenuOpen && (
         <div 
           ref={locationMenuRef}
-          className="absolute top-[60px] md:top-[68px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute top-[64px] md:top-[68px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="text-center mb-6">
             <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Boutique</h4>
@@ -499,8 +495,15 @@ export function Header() {
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2">
                 <X strokeWidth={2} className="w-6 h-6" />
               </button>
-              <div className="flex-1 flex justify-center">
-                <Logo className="h-10 w-auto object-contain" />
+              
+              <div className="flex-1 flex justify-center items-center gap-2">
+                <Logo className="h-8 w-auto object-contain shrink-0" />
+                {/* ✨ PROVISION FOR LOGO TEXT IMAGE */}
+                <img 
+                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/YOUR_TEXT_LOGO_IMAGE.png" 
+                  alt="Pavitram Diamond Jewellery" 
+                  className="h-4 w-auto object-contain shrink-0"
+                />
               </div>
               <div className="w-10 shrink-0"></div>
             </div>

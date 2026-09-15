@@ -7,10 +7,10 @@ const MAIN_COLUMNS = [
   {
     title: "Our Heritage",
     links: [
-      ["About Pavitram", "/about"],
-      ["Design & Craftsmanship", "/about"],
-      ["The Pavitram Promise", "/about"],
-      ["Careers", "/policy/contact"],
+      ["About Pavitram", "/policy/about"],
+      ["Design & Craftsmanship", "/policy/design-and-craftsmanship"],
+      ["The Pavitram Promise", "/policy/the-pavitram-promise"],
+      ["Careers", "/policy/careers"],
     ],
   },
   {
