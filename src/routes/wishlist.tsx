@@ -141,7 +141,7 @@ function WishlistPage() {
       <div className="bg-[#F7F1E8] border-b border-[#E9D8C3] relative overflow-hidden">
         {/* Subtle Background Watermark */}
         <img 
-          src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+          src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
           alt="Decorative Floral" 
           className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply"
         />
@@ -184,7 +184,7 @@ function WishlistPage() {
           // Empty State
           <div className="relative flex flex-col items-center justify-center py-24 md:py-32 bg-[#F7F1E8]/30 border border-[#E9D8C3] rounded-sm text-center px-4 overflow-hidden">
             <img 
-              src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+              src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
               alt="Decorative Floral" 
               className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
             />

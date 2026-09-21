@@ -1,12 +1,16 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { 
   Trash2, MapPin, Store, Ticket, ChevronRight, 
   ShieldCheck, RefreshCw, Award, ArrowLeft, MessageCircle, Phone, ShoppingBag,
-  PackageX
+  PackageX, Loader2, X
 } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import { useCart } from "@/context/CartContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute('/cart')({
   component: CartPage,
@@ -17,14 +21,122 @@ function CartPage() {
   const { cartItems, updateQuantity, removeItem } = useCart();
   const [pincode, setPincode] = useState("400089");
   
-  // Totals Calculation
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discount = 0; 
-  const shipping = 0; 
-  const total = subtotal - discount + shipping;
+  // --- DYNAMIC STATE ---
+  const [shippingSettings, setShippingSettings] = useState({ is_active: false, flat_rate: 0, free_shipping_threshold: 0 });
+  
+  // Coupon State
+  const [isCouponInputOpen, setIsCouponInputOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount_value: number; handling_fee: number } | null>(null);
+  const [couponError, setCouponError] = useState("");
 
+  // 1. Fetch Dynamic Shipping Settings on Mount
+  useEffect(() => {
+    const fetchShipping = async () => {
+      const { data } = await supabase
+        .from("ecommerce_store_config")
+        .select("config_value")
+        .eq("config_key", "shipping_settings")
+        .single();
+      if (data?.config_value) setShippingSettings(data.config_value);
+    };
+    fetchShipping();
+  }, []);
+
+  // 2. Secure Coupon Validation Logic
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+    
+    setIsApplyingCoupon(true);
+    setCouponError("");
+
+    try {
+      // SECURE FETCH: We only check if it exists and is registered. We do NOT fetch customer names.
+      const { data: voucher, error } = await supabase
+        .from('vouchers')
+        .select('id, code, discount_value, handling_fee, status, valid_from, expiry_date')
+        .ilike('code', couponInput.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (!voucher) {
+        setCouponError("Invalid coupon code.");
+        return;
+      }
+      if (voucher.status !== 'registered') {
+        setCouponError("This coupon is no longer valid or has already been redeemed.");
+        return;
+      }
+
+      // Date Security Checks
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      if (voucher.valid_from && today < new Date(voucher.valid_from)) {
+        setCouponError("This voucher is not active yet.");
+        return;
+      }
+      if (voucher.expiry_date && today > new Date(voucher.expiry_date)) {
+        setCouponError("This voucher has expired.");
+        return;
+      }
+
+      // Valid for preview! (Final customer_id validation happens at checkout)
+      setAppliedCoupon({
+        code: voucher.code,
+        discount_value: voucher.discount_value,
+        handling_fee: voucher.handling_fee || 0
+      });
+      setCouponInput("");
+      setIsCouponInputOpen(false);
+      toast.success("Coupon applied successfully!");
+
+    } catch (err) {
+      console.error(err);
+      setCouponError("Error verifying coupon. Please try again.");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+  };
+
+  // 3. Totals Calculation Engine
+  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  
+  // Calculate Discount (Ensuring we subtract handling fee, and prevent negative totals)
+  let discount = 0;
+  if (appliedCoupon) {
+    const rawDiscount = appliedCoupon.discount_value - appliedCoupon.handling_fee;
+    // Don't discount more than the subtotal
+    discount = Math.min(rawDiscount, subtotal); 
+    discount = Math.max(0, discount); // Prevent negative numbers
+  }
+
+  // Calculate Shipping based on dynamic settings
+  let shipping = 0;
+  if (shippingSettings.is_active && subtotal < shippingSettings.free_shipping_threshold) {
+    shipping = shippingSettings.flat_rate;
+  }
+
+  const total = Math.max(0, subtotal - discount + shipping);
+
+  // 4. Secure Handoff to Checkout
   const handlePlaceOrder = () => {
-    navigate({ to: "/checkout" });
+    navigate({ 
+      to: "/checkout",
+      search: { 
+        // Securely pass the pre-validated code to the checkout URL parameters
+        coupon: appliedCoupon?.code || undefined 
+      }
+    });
   };
 
   return (
@@ -32,7 +144,7 @@ function CartPage() {
       
       {/* Subtle Floral Background overlay */}
       <img 
-        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
         alt="Decorative Floral" 
         className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
       />
@@ -41,10 +153,10 @@ function CartPage() {
       <header className="bg-white/90 backdrop-blur-md border-b border-[#E9D8C3] sticky top-0 z-50">
         <div className="max-w-[1200px] mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => history.back()} className="text-zinc-500 hover:text-[#4A1F58] transition-colors">
+            <button onClick={() => window.history.back()} className="text-zinc-500 hover:text-[#4A1F58] transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="shrink-0">
+            <div className="shrink-0 cursor-pointer" onClick={() => navigate({ to: "/" })}>
               <Logo className="h-8 md:h-10 w-auto" />
             </div>
           </div>
@@ -90,7 +202,6 @@ function CartPage() {
             
             {/* LEFT COLUMN: CART ITEMS */}
             <div className="w-full lg:w-[60%] xl:w-[65%] space-y-4">
-              
               {cartItems.map((item) => (
                 <div key={item.id} className="bg-white border border-[#E9D8C3] rounded-sm p-4 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] relative">
                   
@@ -160,16 +271,57 @@ function CartPage() {
             {/* RIGHT COLUMN: ORDER SUMMARY */}
             <div className="w-full lg:w-[40%] xl:w-[35%] space-y-4">
 
-              {/* Coupon Code Trigger */}
-              <button className="w-full bg-white border border-[#E9D8C3] hover:border-[#C9A15B] rounded-sm p-4 flex items-center justify-between group transition-colors shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#F7F1E8] text-[#C9A15B] flex items-center justify-center border border-[#E9D8C3]">
-                    <Ticket className="w-4 h-4" />
+              {/* Coupon Code Section */}
+              <div className="bg-white border border-[#E9D8C3] rounded-sm shadow-sm overflow-hidden transition-all">
+                {!appliedCoupon && !isCouponInputOpen ? (
+                  <button 
+                    onClick={() => setIsCouponInputOpen(true)}
+                    className="w-full p-4 flex items-center justify-between group hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#F7F1E8] text-[#C9A15B] flex items-center justify-center border border-[#E9D8C3]">
+                        <Ticket className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-sans font-bold uppercase tracking-widest text-[#302832] group-hover:text-[#4A1F58]">Apply Voucher</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform group-hover:text-[#C9A15B]" />
+                  </button>
+                ) : appliedCoupon ? (
+                  <div className="p-4 bg-emerald-50/50 border border-emerald-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-sans font-bold uppercase tracking-widest text-emerald-800 block">'{appliedCoupon.code}' Applied</span>
+                        <span className="text-[10px] text-emerald-600 font-medium">Valid code. Verification at checkout.</span>
+                      </div>
+                    </div>
+                    <button onClick={removeCoupon} className="text-zinc-400 hover:text-red-500 p-2"><X className="w-4 h-4" /></button>
                   </div>
-                  <span className="text-xs font-sans font-bold uppercase tracking-widest text-[#302832] group-hover:text-[#4A1F58]">Apply Coupon</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-1 transition-transform group-hover:text-[#C9A15B]" />
-              </button>
+                ) : (
+                  <form onSubmit={handleApplyCoupon} className="p-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Enter voucher code" 
+                        className="flex-1 font-mono uppercase text-sm border border-zinc-200 rounded-sm px-3 py-2 outline-none focus:border-[#C9A15B] focus:ring-1 focus:ring-[#C9A15B]"
+                      />
+                      <button 
+                        type="submit" 
+                        disabled={isApplyingCoupon || !couponInput.trim()}
+                        className="bg-[#4A1F58] hover:bg-[#302832] disabled:bg-zinc-400 text-white px-5 rounded-sm text-xs font-bold uppercase tracking-widest transition-colors flex items-center"
+                      >
+                        {isApplyingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                      </button>
+                    </div>
+                    {couponError && <p className="text-red-500 text-xs mt-2 font-medium">{couponError}</p>}
+                    <button type="button" onClick={() => { setIsCouponInputOpen(false); setCouponError(""); }} className="text-[10px] text-zinc-500 hover:text-zinc-800 uppercase tracking-wider font-bold mt-3 block w-full text-center">Cancel</button>
+                  </form>
+                )}
+              </div>
 
               {/* Delivery Pincode */}
               <div className="bg-white border border-[#E9D8C3] rounded-sm p-4 flex items-center justify-between shadow-sm">
@@ -191,17 +343,23 @@ function CartPage() {
                     <span>Subtotal</span>
                     <span className="font-medium text-[#302832]">₹{subtotal.toLocaleString('en-IN')}</span>
                   </div>
+                  
                   <div className="flex justify-between text-zinc-600">
                     <span>Coupon Discount</span>
                     {discount > 0 ? (
                       <span className="font-medium text-emerald-600">- ₹{discount.toLocaleString('en-IN')}</span>
                     ) : (
-                      <button className="text-[10px] font-bold text-[#C9A15B] uppercase tracking-widest hover:text-[#4A1F58] transition-colors">Add Coupon</button>
+                      <span className="text-zinc-400">₹0</span>
                     )}
                   </div>
+                  
                   <div className="flex justify-between text-zinc-600">
                     <span>Shipping (Standard)</span>
-                    <span className="font-medium text-[#C9A15B] uppercase tracking-widest text-[10px]">Free</span>
+                    {shipping === 0 ? (
+                      <span className="font-medium text-[#C9A15B] uppercase tracking-widest text-[10px]">Free</span>
+                    ) : (
+                      <span className="font-medium text-[#302832]">₹{shipping.toLocaleString('en-IN')}</span>
+                    )}
                   </div>
                 </div>
 
@@ -219,7 +377,6 @@ function CartPage() {
               </div>
 
             </div>
-
           </div>
         )}
       </main>

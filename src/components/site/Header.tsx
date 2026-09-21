@@ -228,7 +228,6 @@ export function Header() {
           
           <Link to="/" className="flex items-center gap-2 pl-1">
           <Logo className="h-14 w-auto object-contain shrink-0" />
-            {/* ✨ PROVISION FOR LOGO TEXT IMAGE */}
             <img 
               src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
               alt="Pavitram Diamond Jewellery" 
@@ -491,23 +490,25 @@ export function Header() {
         <div className="fixed inset-0 z-[100] md:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
           <div className="absolute top-0 left-0 w-[85%] max-w-[340px] h-[100dvh] bg-[#F7F1E8] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+            
+            {/* Drawer Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-[#E9D8C3] shrink-0 bg-white shadow-sm">
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2">
                 <X strokeWidth={2} className="w-6 h-6" />
               </button>
               
-              <div className="flex-1 flex justify-center items-center gap-2">
-                <Logo className="h-8 w-auto object-contain shrink-0" />
-                {/* ✨ PROVISION FOR LOGO TEXT IMAGE */}
+              <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex-1 flex justify-center items-center gap-2">
+                <Logo className="h-10 w-auto object-contain shrink-0" />
                 <img 
-                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/YOUR_TEXT_LOGO_IMAGE.png" 
+                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
                   alt="Pavitram Diamond Jewellery" 
-                  className="h-4 w-auto object-contain shrink-0"
+                  className="h-6 w-auto object-contain shrink-0"
                 />
-              </div>
+              </Link>
               <div className="w-10 shrink-0"></div>
             </div>
 
+            {/* Menu Links */}
             <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col">
               <div className="py-2 flex-1">
                 {isLoadingCats ? (
@@ -562,17 +563,8 @@ export function Header() {
                 )}
               </div>
 
+              {/* Bottom Cards */}
               <div className="px-4 py-6 space-y-4 shrink-0 mt-auto">
-                <div className="bg-white border border-[#E9D8C3] p-4 rounded-sm shadow-sm relative overflow-hidden">
-                  <div className="relative z-10">
-                    <p className="text-xs font-sans text-[#4A1F58] mb-1">Own your dream jewellery</p>
-                    <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-[11px] font-sans font-bold text-[#C9A15B] uppercase tracking-widest flex items-center gap-1">
-                      Golden Programs <ArrowRight className="w-3 h-3" />
-                    </Link>
-                  </div>
-                  <Diamond className="absolute -right-4 -bottom-4 w-16 h-16 text-[#F7F1E8] opacity-50 pointer-events-none" />
-                </div>
-
                 <div className="bg-white border border-[#E9D8C3] p-4 rounded-sm shadow-sm relative overflow-hidden" onClick={() => { setIsMobileMenuOpen(false); handleLocationMenuClick(); }}>
                   <div className="relative z-10">
                     <p className="text-xs font-sans text-[#4A1F58] mb-1">Find the nearest store</p>
@@ -585,6 +577,7 @@ export function Header() {
               </div>
             </div>
 
+            {/* Sticky Bottom Actions */}
             <div className="bg-[#4A1F58] p-6 flex flex-col gap-5 text-white shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] relative z-20">
                <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
                  Log In / Sign Up

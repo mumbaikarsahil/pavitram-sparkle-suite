@@ -210,7 +210,7 @@ function CategoryPage() {
       <div className="bg-[#F7F1E8] border-b border-[#E9D8C3] relative overflow-hidden">
         {/* Subtle Background Watermark */}
         <img 
-          src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+          src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
           alt="Decorative Floral" 
           className="absolute inset-0 w-full h-full object-cover opacity-[0.08] pointer-events-none mix-blend-multiply"
         />

@@ -7,31 +7,31 @@ const MAIN_COLUMNS = [
   {
     title: "Our Heritage",
     links: [
-      ["About Pavitram", "/policy/about"],
-      ["Design & Craftsmanship", "/policy/design-and-craftsmanship"],
-      ["The Pavitram Promise", "/policy/the-pavitram-promise"],
-      ["Careers", "/policy/careers"],
+      { label: "About Pavitram", to: "/about" },
+      { label: "Design & Craftsmanship", to: "/heritage" },
+      { label: "The Pavitram Promise", to: "/heritage" },
+      { label: "Careers", to: "/careers" },
     ],
   },
   {
     title: "Categories",
     links: [
-      ["Rings", "/category/rings"],
-      ["Earrings", "/category/earrings"],
-      ["Necklaces", "/category/necklaces"],
-      ["Pendants", "/category/pendants"],
-      ["Bangles", "/category/bangles"],
-      ["Mangalsutras", "/category/mangalsutras"],
+      { label: "Rings", to: "/category/$slug", params: { slug: "rings" } },
+      { label: "Earrings", to: "/category/$slug", params: { slug: "earrings" } },
+      { label: "Necklaces", to: "/category/$slug", params: { slug: "necklaces" } },
+      { label: "Pendants", to: "/category/$slug", params: { slug: "pendants" } },
+      { label: "Bangles", to: "/category/$slug", params: { slug: "bangles" } },
+      { label: "Mangalsutras", to: "/category/$slug", params: { slug: "mangalsutras" } },
     ],
   },
   {
     title: "Customer Care",
     links: [
-      ["Track Order", "/track-order"],
-      ["Exchange & Buy-Back", "/policy/returns"],
-      ["Shipping & Delivery", "/policy/shipping"],
-      ["Terms of Service", "/policy/terms"],
-      ["Privacy Policy", "/policy/privacy"],
+      { label: "Track Order", to: "/track-order" },
+      { label: "Exchange & Buy-Back", to: "/policy/$slug", params: { slug: "exchange-buyback" } },
+      { label: "Shipping & Delivery", to: "/policy/$slug", params: { slug: "shipping" } },
+      { label: "Terms of Service", to: "/policy/$slug", params: { slug: "terms" } },
+      { label: "Gift Vouchers", to: "/policy/$slug", params: { slug: "gift-voucher" } },
     ],
   },
 ];
@@ -100,11 +100,19 @@ export function Footer() {
             {/* Navigation Links */}
             {MAIN_COLUMNS.map((col) => (
               <div key={col.title} className="lg:col-span-2">
-                <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-5">{col.title}</h4>
+                <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-5">
+                  {col.title}
+                </h4>
                 <ul className="space-y-3 text-[13px] font-sans text-[#F7F1E8]/80">
-                  {col.links.map(([label, to]) => (
-                    <li key={to}>
-                      <Link to={to} className="hover:text-[#C9A15B] transition-colors block py-0.5">{label}</Link>
+                  {col.links.map((link, idx) => (
+                    <li key={idx}>
+                      <Link 
+                        to={link.to} 
+                        params={link.params} 
+                        className="hover:text-[#C9A15B] transition-colors block py-0.5"
+                      >
+                        {link.label}
+                      </Link>
                     </li>
                   ))}
                 </ul>
