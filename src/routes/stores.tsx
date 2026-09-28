@@ -32,7 +32,7 @@ function StoresPage() {
     <div className="min-h-screen bg-[#FDFBF7] md:bg-white pt-8 md:pt-12 pb-24 font-sans border-t border-zinc-100">
       <StoreLocator 
         showSearch={true} 
-        title="Our Boutiques" 
+        title="Our Showrooms" 
         subtitle="Experience our exquisite diamond collections in person across Maharashtra."
         initialQuery={q}
         initialLocation={initialLocation}

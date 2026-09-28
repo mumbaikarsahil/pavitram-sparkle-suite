@@ -36,6 +36,7 @@ export function Index() {
   const [occasions, setOccasions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [priceCollections, setPriceCollections] = useState<any[]>([]); // ✨ NEW: Dynamic Prices
+  const [experienceVideos, setExperienceVideos] = useState<any[]>([]);
   
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false); 
@@ -137,6 +138,22 @@ export function Index() {
       navigate({ to: "/stores", search: { q: storeQuery.trim() } });
     }
   };
+
+  // Add this useEffect to fetch the active videos
+  useEffect(() => {
+    async function fetchVideos() {
+      const { data } = await supabase
+        .from('ecommerce_experience_videos')
+        .select('video_id')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      
+      if (data && data.length > 0) {
+        setExperienceVideos(data);
+      }
+    }
+    fetchVideos();
+  }, []);
 
   const handleAutoDetect = () => {
     setIsLocating(true);
@@ -334,7 +351,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.2] pointer-events-none mix-blend-multiply z-0"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
         
         <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col gap-8 md:gap-14 px-4 md:px-8">
@@ -429,7 +446,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.2] pointer-events-none mix-blend-multiply z-0"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-4 border-b border-[#E9D8C3]/60 pb-6">
@@ -508,7 +525,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.2] pointer-events-none mix-blend-multiply z-0"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
 
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 relative z-10">
@@ -580,7 +597,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.2] pointer-events-none mix-blend-multiply z-0"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
   
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
@@ -726,7 +743,7 @@ export function Index() {
           <img 
             src={BG_PATTERN} 
             alt="Decorative Floral" 
-            className="absolute inset-0 w-full h-full object-cover opacity-[0.2] pointer-events-none mix-blend-multiply z-0"
+            className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
           />
           
           <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
@@ -890,20 +907,15 @@ export function Index() {
               ref={storyScrollRef}
               className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-[12.5vw] md:px-0"
             >
-              {[
-                { videoId: "3g3Gm6G0MDM" },
-                { videoId: "kIr8aS7P6Ow" },
-                { videoId: "A8kWks6Vj08" },
-                { videoId: "ZaDO_B-DenY" },
-                { videoId: "uJXARohAjIY" },
-              ].map((story, index) => (
+              {/* ✨ CHANGED: Now mapping over the fetched state */}
+              {experienceVideos.map((story, index) => (
                 <div 
                   key={index} 
                   className="shrink-0 w-[75vw] md:w-[320px] aspect-[9/16] relative snap-center rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-md border border-[#E9D8C3]/20"
                 >
                   <iframe
                     className="absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none" 
-                    src={`https://www.youtube.com/embed/${story.videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.videoId}&playsinline=1&rel=0&modestbranding=1`}
+                    src={`https://www.youtube.com/embed/${story.video_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.video_id}&playsinline=1&rel=0&modestbranding=1`}
                     title={`Pavitram Experience ${index + 1}`}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1009,7 +1021,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Floral" 
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.15] pointer-events-none mix-blend-multiply z-0"
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
 
         <div className="relative z-10 max-w-2xl mx-auto px-4 text-center flex flex-col items-center">

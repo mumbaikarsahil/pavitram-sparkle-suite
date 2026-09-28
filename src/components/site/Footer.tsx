@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
-import { Instagram, Facebook, Youtube, MapPin, Phone, Mail, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import { Instagram, Facebook, Youtube, MapPin, Phone, Mail, ChevronDown, ChevronUp, ShieldCheck, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client"; // Adjust path if needed
 
 const MAIN_COLUMNS = [
   {
@@ -63,93 +64,154 @@ const SEO_LINKS = [
 
 export function Footer() {
   const [isSeoExpanded, setIsSeoExpanded] = useState(false);
+  
+  // Newsletter States
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      setErrorMessage("Please enter a valid email address.");
+      setStatus("error");
+      return;
+    }
+
+    setStatus("loading");
+    setErrorMessage("");
+
+    try {
+      const { error } = await supabase
+        .from("ecommerce_newsletter_subscribers")
+        .insert([{ email: email.toLowerCase().trim() }]);
+
+      if (error) {
+        if (error.code === '23505') throw new Error("This email is already subscribed.");
+        throw error;
+      }
+
+      setStatus("success");
+      setEmail("");
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMessage(err.message || "Failed to subscribe. Please try again.");
+    }
+  };
 
   return (
     <footer className="font-sans">
       
-      {/* 1. TOP SECTION: Royal Purple Anchor */}
-      <div className="bg-[#4A1F58] pt-16 pb-12 relative overflow-hidden">
-        {/* Subtle Background Accent */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#C9A15B]/5 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="mx-auto max-w-[1400px] px-4 md:px-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8">
+      {/* 1. TOP SECTION: Split Full-Bleed Layout */}
+      <div className="w-full flex flex-col lg:flex-row border-b border-[#E9D8C3]">
+        
+        {/* Left Side: Beige Background */}
+        <div className="w-full lg:w-[35%] bg-[#F7F1E8] py-12 lg:py-16 px-4 md:px-8 flex lg:justify-end border-b lg:border-b-0 lg:border-r border-[#E9D8C3]">
+          <div className="w-full lg:max-w-[490px] lg:pr-8 flex flex-col items-start">
             
-            {/* Brand & Newsletter Column */}
-            <div className="lg:col-span-4 lg:pr-8">
-              <div className="bg-[#F7F1E8] rounded-sm p-3 inline-block mb-6 shadow-sm">
-                <Logo className="h-8 w-auto" />
-              </div>
-              <p className="text-sm font-sans text-[#F7F1E8]/80 mb-8 leading-relaxed max-w-sm">
-                Discover rare & beautiful items sourced both locally & globally. Timeless designs, certified authenticity, and a legacy of trust.
-              </p>
-              
-              <h4 className="font-serif text-[#C9A15B] font-medium text-lg mb-3">Join the Inner Circle</h4>
-              <form className="flex gap-2 max-w-sm">
+            {/* Bigger Logo without the wrapper box */}
+            <Link to="/" className="inline-block mb-8 hover:opacity-80 transition-opacity">
+              <Logo className="h-16 md:h-20 w-auto text-[#4A1F58]" />
+            </Link>
+
+            <p className="text-sm font-sans text-zinc-600 mb-10 leading-relaxed max-w-sm">
+              Discover rare & beautiful items sourced both locally & globally. Timeless designs, certified authenticity, and a legacy of trust.
+            </p>
+            
+            <h4 className="font-serif text-[#4A1F58] font-medium text-xl mb-4">Join the Inner Circle</h4>
+            
+            <form onSubmit={handleSubscribe} className="flex flex-col gap-2 w-full max-w-sm">
+              <div className="flex gap-2 w-full">
                 <input
                   type="email"
                   placeholder="Enter your email"
-                  className="flex-1 rounded-sm bg-[#302832]/50 border border-[#C9A15B]/30 px-4 py-2.5 text-sm text-[#F7F1E8] placeholder:text-[#F7F1E8]/40 outline-none focus:border-[#C9A15B] transition-colors"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={status === "loading" || status === "success"}
+                  className="flex-1 rounded-sm bg-white border border-[#E9D8C3] px-4 py-3 text-sm text-[#302832] placeholder:text-zinc-400 outline-none focus:border-[#C9A15B] transition-colors shadow-sm disabled:bg-zinc-50"
                 />
-                <button className="rounded-sm bg-[#C9A15B] text-[#4A1F58] px-6 text-[11px] font-bold uppercase tracking-widest hover:bg-[#F7F1E8] transition-colors">
-                  Subscribe
+                <button 
+                  type="submit"
+                  disabled={status === "loading" || status === "success"}
+                  className="rounded-sm bg-[#4A1F58] text-white px-6 text-[11px] font-bold uppercase tracking-widest hover:bg-[#302832] transition-colors shadow-sm disabled:opacity-80 flex items-center justify-center min-w-[120px]"
+                >
+                  {status === "loading" ? <Loader2 className="w-4 h-4 animate-spin text-[#C9A15B]" /> : status === "success" ? "Joined" : "Subscribe"}
                 </button>
-              </form>
-            </div>
-
-            {/* Navigation Links */}
-            {MAIN_COLUMNS.map((col) => (
-              <div key={col.title} className="lg:col-span-2">
-                <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-5">
-                  {col.title}
-                </h4>
-                <ul className="space-y-3 text-[13px] font-sans text-[#F7F1E8]/80">
-                  {col.links.map((link, idx) => (
-                    <li key={idx}>
-                      <Link 
-                        to={link.to} 
-                        params={link.params} 
-                        className="hover:text-[#C9A15B] transition-colors block py-0.5"
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
               </div>
-            ))}
-
-            {/* Contact & Visit Us */}
-            <div className="lg:col-span-2">
-              <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-5">Visit Us</h4>
-              <ul className="space-y-4 text-[13px] font-sans text-[#F7F1E8]/80">
-                <li className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
-                  <Link to="/stores" className="hover:text-[#C9A15B] transition-colors">Find a Boutique Near You</Link>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Phone className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
-                  <div>
-                    <a href="tel:+918356834764" className="hover:text-[#C9A15B] transition-colors block">+91 83568 34764</a>
-                    <span className="text-[10px] text-[#F7F1E8]/50 mt-0.5 block uppercase tracking-widest">Mon-Sun, 11AM - 8:30PM</span>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Mail className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
-                  <a href="mailto:support@pavitram.com" className="hover:text-[#C9A15B] transition-colors">support@pavitram.com</a>
-                </li>
-              </ul>
-
-              <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-4 mt-8">Follow Us</h4>
-              <div className="flex items-center gap-3">
-                <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Instagram className="w-4 h-4" /></a>
-                <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Facebook className="w-4 h-4" /></a>
-                <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Youtube className="w-4 h-4" /></a>
+              
+              {/* Status Messages */}
+              <div className="h-4 mt-1">
+                {status === "error" && <p className="text-xs text-red-500">{errorMessage}</p>}
+                {status === "success" && <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium"><ShieldCheck className="w-3.5 h-3.5"/> Thank you for subscribing!</p>}
               </div>
-            </div>
+            </form>
 
           </div>
         </div>
+
+        {/* Right Side: Royal Purple Background */}
+        <div className="w-full lg:w-[65%] bg-[#4A1F58] py-12 lg:py-16 px-4 md:px-8 flex lg:justify-start relative overflow-hidden">
+          {/* Subtle Background Accent */}
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#C9A15B]/5 rounded-full blur-[120px] pointer-events-none" />
+          
+          <div className="w-full lg:max-w-[910px] lg:pl-10 relative z-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-6">
+              
+              {/* Navigation Links */}
+              {MAIN_COLUMNS.map((col) => (
+                <div key={col.title}>
+                  <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-6">
+                    {col.title}
+                  </h4>
+                  <ul className="space-y-3.5 text-[13px] font-sans text-[#F7F1E8]/80">
+                    {col.links.map((link, idx) => (
+                      <li key={idx}>
+                        <Link 
+                          to={link.to} 
+                          params={link.params} 
+                          className="hover:text-[#C9A15B] transition-colors block py-0.5"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+
+              {/* Contact & Visit Us */}
+              <div>
+                <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-6">Visit Us</h4>
+                <ul className="space-y-5 text-[13px] font-sans text-[#F7F1E8]/80">
+                  <li className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
+                    <Link to="/stores" className="hover:text-[#C9A15B] transition-colors">Find a Showroom Near You</Link>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Phone className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
+                    <div>
+                      <a href="tel:+918356834764" className="hover:text-[#C9A15B] transition-colors block">+91 83568 34764</a>
+                      <span className="text-[10px] text-[#F7F1E8]/50 mt-0.5 block uppercase tracking-widest">Mon-Sun, 11AM - 8:30PM</span>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Mail className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
+                    <a href="mailto:info@pavitram.com" className="hover:text-[#C9A15B] transition-colors">info@pavitram.com</a>
+                  </li>
+                </ul>
+
+                <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-4 mt-8">Follow Us</h4>
+                <div className="flex items-center gap-3">
+                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Instagram className="w-4 h-4" /></a>
+                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Facebook className="w-4 h-4" /></a>
+                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Youtube className="w-4 h-4" /></a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* 2. BOTTOM SECTION: Beige SEO Deep Links */}

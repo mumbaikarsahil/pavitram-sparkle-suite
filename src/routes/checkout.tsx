@@ -7,7 +7,8 @@ import { Logo } from "@/components/site/Logo";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   ArrowLeft, Lock, CreditCard, Loader2, AlertTriangle, 
-  MessageCircle, Phone, RefreshCw, X, Ticket
+  MessageCircle, Phone, RefreshCw, X, Ticket, MapPin, 
+  UserPlus, CheckCircle2, UserCircle2
 } from "lucide-react";
 
 export const Route = createFileRoute('/checkout')({
@@ -17,7 +18,6 @@ export const Route = createFileRoute('/checkout')({
   component: CheckoutPage,
 });
 
-// Helper to load Razorpay SDK dynamically
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     const script = document.createElement("script");
@@ -39,7 +39,12 @@ function CheckoutPage() {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [dpdpConsent, setDpdpConsent] = useState(false);
 
-  // Payment Failure / Intermediary State
+  // Auth & Address States
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [savedProfile, setSavedProfile] = useState<any>(null);
+  const [useSavedAddress, setUseSavedAddress] = useState<boolean>(false);
+
+  // Payment Failure State
   const [paymentFailedModal, setPaymentFailedModal] = useState<{
     isOpen: boolean;
     reason: string;
@@ -48,7 +53,7 @@ function CheckoutPage() {
     reason: "",
   });
 
-  // Dynamic DB States (Includes GST settings)
+  // Dynamic DB States
   const [checkoutConfig, setCheckoutConfig] = useState({ 
     is_active: false, 
     flat_rate: 0, 
@@ -64,12 +69,13 @@ function CheckoutPage() {
   });
 
   // ==========================================
-  // 1. DATA INITIALIZATION
+  // 1. DATA INITIALIZATION & AUTH CHECK
   // ==========================================
   useEffect(() => {
-    const fetchCheckoutConfig = async () => {
+    const initializeCheckout = async () => {
       setIsDataLoading(true);
       try {
+        // A. Load Store Config
         const { data: configData } = await supabase
           .from("ecommerce_store_config")
           .select("config_value")
@@ -83,6 +89,7 @@ function CheckoutPage() {
           });
         }
 
+        // B. Load Voucher
         if (coupon) {
           const { data: voucher } = await supabase
             .from('vouchers')
@@ -93,21 +100,96 @@ function CheckoutPage() {
 
           if (voucher) setVoucherDetails(voucher);
         }
+
+        // C. Load Auth User & Saved Profile
+        const storedUser = localStorage.getItem("pavitram_user");
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          setCurrentUser(user);
+
+          const nameParts = (user.full_name || "").split(" ");
+          let displayPhone = user.phone || "";
+          if (displayPhone.startsWith("91") && displayPhone.length === 12) {
+            displayPhone = displayPhone.substring(2);
+          }
+
+          // Fetch Master Address
+          const { data: profile } = await supabase
+            .from("ecommerce_customer_profiles")
+            .select("*")
+            .eq("customer_id", user.id)
+            .maybeSingle();
+
+          const hasValidSavedAddress = profile && (profile.street_address || profile.city);
+
+          if (hasValidSavedAddress) {
+            setSavedProfile(profile);
+            setUseSavedAddress(true);
+            
+            // Auto-fill form with saved data behind the scenes
+            setFormData({
+              firstName: profile.first_name || nameParts[0] || "",
+              lastName: profile.last_name || nameParts.slice(1).join(" ") || "",
+              email: user.email || "",
+              phone: displayPhone,
+              addressLine1: profile.street_address || "",
+              addressLine2: profile.apartment || "",
+              city: profile.city || "",
+              state: profile.state || "",
+              pincode: profile.pincode || ""
+            });
+          } else {
+            // Pre-fill contact info only if no address exists
+            setFormData(prev => ({
+              ...prev,
+              firstName: nameParts[0] || "",
+              lastName: nameParts.slice(1).join(" ") || "",
+              email: user.email || "",
+              phone: displayPhone,
+            }));
+          }
+        }
       } catch (error) {
         console.error("Initialization Error", error);
       } finally {
         setIsDataLoading(false);
       }
     };
-    fetchCheckoutConfig();
+    
+    initializeCheckout();
   }, [coupon]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const toggleAddressMode = (useSaved: boolean) => {
+    setUseSavedAddress(useSaved);
+    if (useSaved && savedProfile) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: savedProfile.first_name || currentUser?.full_name?.split(" ")[0] || "",
+        lastName: savedProfile.last_name || currentUser?.full_name?.split(" ").slice(1).join(" ") || "",
+        addressLine1: savedProfile.street_address || "",
+        addressLine2: savedProfile.apartment || "",
+        city: savedProfile.city || "",
+        state: savedProfile.state || "",
+        pincode: savedProfile.pincode || ""
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        state: "",
+        pincode: ""
+      }));
+    }
+  };
+
   // ==========================================
-  // 2. STRICT BILLING MATH ENGINE (For UI Estimation)
+  // 2. STRICT BILLING MATH ENGINE
   // ==========================================
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   
@@ -120,7 +202,6 @@ function CheckoutPage() {
     rawDiscount = voucherDetails.discount_value || 0;
     handlingFee = voucherDetails.handling_fee || 0;
     
-    // Exact ERP Logic: Deduct handling fee from the discount directly.
     if (subtotal >= rawDiscount) {
       appliedDiscount = rawDiscount - handlingFee;
       taxableValue = subtotal - appliedDiscount;
@@ -132,18 +213,15 @@ function CheckoutPage() {
 
   taxableValue = Math.max(0, taxableValue);
 
-  // Calculate GST
   const totalGstAmount = taxableValue * (checkoutConfig.gst_percentage / 100);
   const cgstAmount = totalGstAmount / 2;
   const sgstAmount = totalGstAmount / 2;
 
-  // Calculate Shipping
   let shippingCharge = 0;
   if (checkoutConfig.is_active && subtotal < checkoutConfig.free_shipping_threshold) {
     shippingCharge = checkoutConfig.flat_rate;
   }
 
-  // Final Payable (Rounded to nearest Rupee)
   const exactTotal = taxableValue + totalGstAmount + shippingCharge;
   const total = Math.round(exactTotal);
 
@@ -167,33 +245,18 @@ function CheckoutPage() {
   // ==========================================
   const handlePayment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
     if (cartItems.length === 0) return alert("Your cart is empty!");
 
-    // Pop-up warning if required fields are missing
     if (!isFormValid) {
-      const missing: string[] = [];
-      if (!formData.firstName.trim()) missing.push("First Name");
-      if (!formData.lastName.trim()) missing.push("Last Name");
-      if (!formData.email.trim()) missing.push("Email Address");
-      if (!formData.phone.trim()) missing.push("Phone Number");
-      if (!formData.addressLine1.trim()) missing.push("Street Address");
-      if (!formData.city.trim()) missing.push("City");
-      if (!formData.state.trim()) missing.push("State");
-      if (!formData.pincode.trim()) missing.push("PIN Code");
-      if (!dpdpConsent) missing.push("Data Privacy Consent (Checkbox)");
-      
-      alert(`Please complete the following required fields before paying:\n\n- ${missing.join('\n- ')}`);
+      alert("Please complete all required fields and accept the DPDP privacy consent to continue.");
       return;
     }
 
-    // Dismiss failure screen if retrying
     setPaymentFailedModal({ isOpen: false, reason: "" });
     setIsProcessing(true);
     setProcessingMessage("Verifying order and connecting to Razorpay...");
 
     try {
-      // Zero-Trust Voucher Verification
       if (voucherDetails) {
         const { data: verifyVoucher, error: vError } = await supabase
           .from('vouchers')
@@ -216,19 +279,17 @@ function CheckoutPage() {
             .maybeSingle();
 
           if (!customerMatch) {
-            alert("Security Alert: This voucher belongs to a different registered customer. Please check out using the exact registered email or phone.");
+            alert("Security Alert: This voucher belongs to a different registered customer.");
             setIsProcessing(false);
             return;
           }
         }
       }
 
-      // Load Gateway SDK
       setProcessingMessage("Launching secure payment portal...");
       const res = await loadRazorpayScript();
       if (!res) throw new Error("Payment gateway failed to load. Please check your connection.");
 
-      // Server-side price calculation
       const orderResponse = await fetch('https://mfdjlbvqfbujipihehpt.supabase.co/functions/v1/razorpay-create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,7 +303,6 @@ function CheckoutPage() {
 
       if (!orderData.id) throw new Error("Failed to initialize order on server.");
 
-      // Razorpay Options
       const options = {
         key: "rzp_test_TWOt1jOLaW5e92", 
         amount: orderData.amount,
@@ -269,7 +329,8 @@ function CheckoutPage() {
               shipping: shippingCharge,
               total: total,
               voucher_code: voucherDetails?.code || null,
-              voucher_id: voucherDetails?.id || null
+              voucher_id: voucherDetails?.id || null,
+              customer_id: currentUser?.id || null
             }),
           });
           
@@ -280,7 +341,7 @@ function CheckoutPage() {
             setIsProcessing(false);
             navigate({ 
               to: "/success",
-              search: { order_id: verifyData.orderId } // Pass the real ID returned from your edge function
+              search: { order_id: verifyData.orderId } 
             }); 
           } else {
             setIsProcessing(false);
@@ -312,7 +373,6 @@ function CheckoutPage() {
 
       const paymentObject = new (window as any).Razorpay(options);
 
-      // Handle explicit payment failures
       paymentObject.on('payment.failed', function (response: any) {
         setIsProcessing(false);
         setPaymentFailedModal({
@@ -344,7 +404,6 @@ function CheckoutPage() {
 
   return (
     <>
-      {/* 1. PROFESSIONAL FULL-SCREEN GATEWAY LOADER */}
       {isProcessing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-md animate-in fade-in duration-200">
           <div className="flex flex-col items-center gap-5 p-8 max-w-sm text-center">
@@ -360,103 +419,50 @@ function CheckoutPage() {
                 {processingMessage}
               </p>
             </div>
-            <span className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest">
-              Please do not close or refresh this tab
-            </span>
           </div>
         </div>
       )}
 
-      {/* 2. INTERMEDIARY PAYMENT FAILED / CANCELLED SCREEN */}
       {paymentFailedModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-zinc-200 animate-in zoom-in-95 duration-200">
-            
-            {/* Header Strip */}
             <div className="bg-[#FCF9F5] p-6 border-b border-[#E9D8C3]/60 flex flex-col items-center text-center relative">
               <button 
                 onClick={() => setPaymentFailedModal({ isOpen: false, reason: "" })}
-                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 p-1 transition-colors"
-                aria-label="Close"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 p-1"
               >
                 <X className="w-5 h-5" />
               </button>
               <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mb-3 border border-amber-200 shadow-sm">
                 <AlertTriangle className="w-7 h-7 text-amber-600" />
               </div>
-              <h3 className="text-xl font-serif font-medium text-[#4A0B49]">
-                Payment Could Not Be Completed
-              </h3>
-              <p className="text-xs text-zinc-600 font-sans mt-2 leading-relaxed px-2">
-                {paymentFailedModal.reason || "The payment attempt was interrupted or cancelled."}
-              </p>
+              <h3 className="text-xl font-serif font-medium text-[#4A0B49]">Payment Could Not Be Completed</h3>
+              <p className="text-xs text-zinc-600 mt-2">{paymentFailedModal.reason}</p>
             </div>
-
-            {/* Assurance & Action Body */}
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 space-y-4">
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 text-left">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <p className="text-xs text-emerald-900 leading-relaxed">
-                    <strong>Your funds are completely safe.</strong> If any amount was deducted by your bank, it will be automatically reversed to your original payment method within 3 to 5 business days.
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handlePayment()}
-                  className="w-full bg-[#4A0B49] hover:bg-[#340733] text-white text-xs font-bold uppercase tracking-widest py-3.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" /> Retry Payment Now
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentFailedModal({ isOpen: false, reason: "" })}
-                  className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold uppercase tracking-wider py-3 rounded-xl transition-colors"
-                >
-                  Review Order Details
-                </button>
-              </div>
-
-              {/* Concierge Support Section */}
-              <div className="pt-3 border-t border-zinc-100">
-                <p className="text-[11px] text-zinc-400 uppercase tracking-widest text-center mb-2.5 font-bold">
-                  Need Help Completing Your Order?
+                <p className="text-xs text-emerald-900 leading-relaxed">
+                  <strong>Your funds are safe.</strong> If deducted, they will be reversed within 3-5 days.
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <a
-                    href="https://wa.me/918356834764?text=Hi!%20My%20payment%20attempt%20on%20Pavitram%20was%20interrupted.%20Can%20you%20please%20help%20me%20complete%20it?"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 border border-emerald-300 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-50 transition-colors"
-                  >
-                    <MessageCircle className="w-4 h-4 text-emerald-600" /> WhatsApp
-                  </a>
-                  <a
-                    href="tel:+918356834764"
-                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-medium hover:bg-zinc-50 transition-colors"
-                  >
-                    <Phone className="w-4 h-4 text-[#4A0B49]" /> Call Support
-                  </a>
-                </div>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <button onClick={handlePayment} className="w-full bg-[#4A0B49] hover:bg-[#340733] text-white text-xs font-bold uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4" /> Retry Payment
+                </button>
+                <button onClick={() => setPaymentFailedModal({ isOpen: false, reason: "" })} className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold uppercase tracking-wider py-3 rounded-xl">
+                  Review Order
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. CHECKOUT PAGE CONTAINER */}
       <div className={`min-h-screen bg-zinc-50 font-sans pb-24 ${(isProcessing || isDataLoading) ? 'pointer-events-none' : ''}`}>
-        
-        {/* HEADER */}
         <header className="bg-white border-b border-zinc-200 relative z-10">
           <div className="max-w-[1200px] mx-auto px-4 h-16 flex items-center justify-between">
-            <button onClick={() => window.history.back()} className="flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to Cart
+            <button onClick={() => window.history.back()} className="flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900">
+              <ArrowLeft className="w-4 h-4" /> Back
             </button>
             <div className="shrink-0 absolute left-1/2 -translate-x-1/2 cursor-pointer" onClick={() => navigate({ to: "/" })}>
               <Logo className="h-10 w-auto" />
@@ -477,68 +483,130 @@ function CheckoutPage() {
               {/* LEFT COLUMN: CUSTOMER & ADDRESS DETAILS */}
               <div className="w-full lg:w-[55%] xl:w-[60%] space-y-8">
                 
-                {/* Contact Information */}
+                {/* 1. AUTH / CONTACT INFO */}
                 <section className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
-                  <h2 className="text-lg font-bold text-zinc-900 mb-6 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-xs">1</span>
-                    Contact Information
-                  </h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-xs">1</span>
+                      Contact Information
+                    </h2>
+                    {!currentUser && (
+                      <Link to="/login" className="text-xs font-bold text-[#4A0B49] hover:underline flex items-center gap-1">
+                        <UserCircle2 className="w-4 h-4" /> Log in for faster checkout
+                      </Link>
+                    )}
+                  </div>
+                  
+                  {currentUser && (
+                    <div className="mb-4 p-3 bg-[#F7F1E8]/50 border border-[#E9D8C3] rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 bg-[#4A0B49] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {formData.firstName.charAt(0)}{formData.lastName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-zinc-900">Checking out as {currentUser.full_name || 'Guest'}</p>
+                        <p className="text-xs text-zinc-500">{formData.phone}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-zinc-600">Email Address <span className="text-red-500">*</span></label>
-                      <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" placeholder="john@example.com" />
+                      <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" placeholder="john@example.com" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-zinc-600">Phone Number <span className="text-red-500">*</span></label>
-                      <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" placeholder="+91 98765 43210" />
+                      <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" placeholder="9876543210" />
                     </div>
                   </div>
                 </section>
 
-                {/* Delivery Address */}
+                {/* 2. DELIVERY ADDRESS OPTIONS */}
                 <section className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
                   <h2 className="text-lg font-bold text-zinc-900 mb-6 flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-xs">2</span>
-                    Delivery Address
+                    Delivery Details
                   </h2>
                   
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-600">First Name <span className="text-red-500">*</span></label>
-                        <input required type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-600">Last Name <span className="text-red-500">*</span></label>
-                        <input required type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
-                      </div>
+                  {/* Address Toggle (Only visible if they have a saved profile) */}
+                  {savedProfile && (
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      <button
+                        type="button"
+                        onClick={() => toggleAddressMode(true)}
+                        className={`p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all ${
+                          useSavedAddress ? 'border-[#4A0B49] bg-[#4A0B49]/5 shadow-sm' : 'border-zinc-200 hover:border-zinc-300'
+                        }`}
+                      >
+                        <MapPin className={`w-5 h-5 ${useSavedAddress ? 'text-[#4A0B49]' : 'text-zinc-400'}`} />
+                        <span className={`text-xs font-bold ${useSavedAddress ? 'text-[#4A0B49]' : 'text-zinc-600'}`}>Use Saved Address</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleAddressMode(false)}
+                        className={`p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all ${
+                          !useSavedAddress ? 'border-[#4A0B49] bg-[#4A0B49]/5 shadow-sm' : 'border-zinc-200 hover:border-zinc-300'
+                        }`}
+                      >
+                        <UserPlus className={`w-5 h-5 ${!useSavedAddress ? 'text-[#4A0B49]' : 'text-zinc-400'}`} />
+                        <span className={`text-xs font-bold ${!useSavedAddress ? 'text-[#4A0B49]' : 'text-zinc-600'}`}>Send to someone else</span>
+                      </button>
                     </div>
+                  )}
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-zinc-600">Street Address <span className="text-red-500">*</span></label>
-                      <input required type="text" name="addressLine1" value={formData.addressLine1} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" placeholder="House/Flat No., Building Name, Street" />
+                  {/* Saved Address Summary Card */}
+                  {useSavedAddress && savedProfile ? (
+                    <div className="p-5 border border-emerald-200 bg-emerald-50/30 rounded-xl relative overflow-hidden">
+                      <div className="absolute top-4 right-4"><CheckCircle2 className="w-5 h-5 text-emerald-500" /></div>
+                      <h3 className="text-sm font-bold text-zinc-900 mb-1">{formData.firstName} {formData.lastName}</h3>
+                      <p className="text-xs text-zinc-600 leading-relaxed max-w-[85%]">
+                        {formData.addressLine1}, {formData.addressLine2 && `${formData.addressLine2}, `} <br/>
+                        {formData.city}, {formData.state} {formData.pincode}
+                      </p>
+                      <button type="button" onClick={() => toggleAddressMode(false)} className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[#4A0B49] hover:underline">
+                        Edit or enter new address
+                      </button>
                     </div>
+                  ) : (
+                    /* Manual Address Form */
+                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-zinc-600">First Name <span className="text-red-500">*</span></label>
+                          <input required type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-zinc-600">Last Name <span className="text-red-500">*</span></label>
+                          <input required type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
+                        </div>
+                      </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-zinc-600">Apartment, suite, etc. (optional)</label>
-                      <input type="text" name="addressLine2" value={formData.addressLine2} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
-                    </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-zinc-600">Street Address <span className="text-red-500">*</span></label>
+                        <input required type="text" name="addressLine1" value={formData.addressLine1} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" placeholder="House/Flat No., Building Name, Street" />
+                      </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-600">City <span className="text-red-500">*</span></label>
-                        <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
+                        <label className="text-xs font-bold text-zinc-600">Apartment, suite, etc. (optional)</label>
+                        <input type="text" name="addressLine2" value={formData.addressLine2} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-600">State <span className="text-red-500">*</span></label>
-                        <input required type="text" name="state" value={formData.state} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
-                      </div>
-                      <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                        <label className="text-xs font-bold text-zinc-600">PIN Code <span className="text-red-500">*</span></label>
-                        <input required type="text" maxLength={6} name="pincode" value={formData.pincode} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] focus:ring-1 focus:ring-[#4A0B49] outline-none transition-all text-sm" />
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-zinc-600">City <span className="text-red-500">*</span></label>
+                          <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-zinc-600">State <span className="text-red-500">*</span></label>
+                          <input required type="text" name="state" value={formData.state} onChange={handleInputChange} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
+                        </div>
+                        <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                          <label className="text-xs font-bold text-zinc-600">PIN Code <span className="text-red-500">*</span></label>
+                          <input required type="text" maxLength={6} name="pincode" value={formData.pincode} onChange={(e) => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})} className="w-full h-12 px-4 rounded-xl border border-zinc-200 focus:border-[#4A0B49] outline-none transition-all text-sm" />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </section>
               </div>
 
@@ -547,7 +615,6 @@ function CheckoutPage() {
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200 sticky top-24">
                   <h2 className="text-lg font-bold text-zinc-900 mb-6">Order Summary</h2>
                   
-                  {/* Items List */}
                   <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex gap-4 items-start">
@@ -570,7 +637,6 @@ function CheckoutPage() {
 
                   <hr className="border-zinc-100 mb-6" />
 
-                  {/* Totals */}
                   <div className="space-y-3 text-sm border-b border-zinc-100 pb-6 mb-6">
                     <div className="flex justify-between text-zinc-600">
                       <span>Subtotal</span>
@@ -585,11 +651,6 @@ function CheckoutPage() {
                             <span className="font-bold text-xs uppercase tracking-widest">{voucherDetails.code} Applied</span>
                           </div>
                           <span className="font-bold">- ₹{appliedDiscount.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="text-right mt-1.5">
-                          <Link to="/policy/$slug" params={{ slug: "gift-voucher" }} className="text-[9px] text-zinc-400 hover:text-[#C9A15B] transition-colors underline">
-                            For detailed breakup view the Gift Voucher Policy
-                          </Link>
                         </div>
                       </div>
                     )}
@@ -623,8 +684,8 @@ function CheckoutPage() {
                     <span className="text-2xl font-black text-zinc-900 tracking-tight">₹{total.toLocaleString('en-IN')}</span>
                   </div>
 
-                {/* DPDP Act & Legal Compliance Consent */}
-                <div className="mb-6 flex items-start gap-3">
+                  {/* DPDP Act Consent */}
+                  <div className="mb-6 flex items-start gap-3">
                     <input 
                       type="checkbox" 
                       id="dpdp-consent"
@@ -634,35 +695,9 @@ function CheckoutPage() {
                     />
                     <label htmlFor="dpdp-consent" className="text-xs text-zinc-600 leading-tight cursor-pointer">
                       I consent to the collection and processing of my personal data for order fulfillment in accordance with the Digital Personal Data Protection (DPDP) Act, 2023, and I agree to the{" "}
-                      <Link 
-                        to="/policy/$slug" 
-                        params={{ slug: "terms" }} 
-                        target="_blank" 
-                        className="text-[#4A0B49] font-semibold hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Terms of Service
-                      </Link>
-                      ,{" "}
-                      <Link 
-                        to="/policy/$slug" 
-                        params={{ slug: "privacy" }} 
-                        target="_blank" 
-                        className="text-[#4A0B49] font-semibold hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Privacy Policy
-                      </Link>
-                      , and{" "}
-                      <Link 
-                        to="/policy/$slug" 
-                        params={{ slug: "shipping" }} 
-                        target="_blank" 
-                        className="text-[#4A0B49] font-semibold hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Shipping Policy
-                      </Link>.
+                      <Link to="/policy/$slug" params={{ slug: "terms" }} target="_blank" className="text-[#4A0B49] font-semibold hover:underline">Terms of Service</Link>,{" "}
+                      <Link to="/policy/$slug" params={{ slug: "privacy" }} target="_blank" className="text-[#4A0B49] font-semibold hover:underline">Privacy Policy</Link>, and{" "}
+                      <Link to="/policy/$slug" params={{ slug: "shipping" }} target="_blank" className="text-[#4A0B49] font-semibold hover:underline">Shipping Policy</Link>.
                     </label>
                   </div>
                   

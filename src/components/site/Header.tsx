@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, User, Heart, ShoppingBag, ChevronDown, Navigation, Store, ChevronRight, Edit2, Menu, X, ArrowRight, Diamond, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
-import { STORES_DATA } from "@/components/site/StoreLocator";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Category {
   id: string;
@@ -28,7 +27,10 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
 
 export function Header() {
   const navigate = useNavigate({ from: '/' });
+  
+  // Data States
   const [categories, setCategories] = useState<Category[]>([]);
+  const [storeLocations, setStoreLocations] = useState<any[]>([]); // ✨ ADDED STORE STATE
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [activeParent, setActiveParent] = useState<Category | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -49,6 +51,28 @@ export function Header() {
   
   const locationMenuRef = useRef<HTMLDivElement>(null);
 
+  // Add this near your other states in Header.tsx
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Add this useEffect to check for the logged-in user on load
+  useEffect(() => {
+    const storedUser = localStorage.getItem("pavitram_user");
+    if (storedUser) {
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error("Failed to parse user data");
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("pavitram_user");
+    setCurrentUser(null);
+    navigate({ to: '/' });
+  };
+
+  // Handle clicking outside the location menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (locationMenuRef.current && locationMenuRef.current.contains(event.target as Node)) {
@@ -63,6 +87,7 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Handle mobile menu scroll locking
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -72,6 +97,34 @@ export function Header() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
+  // ✨ ADDED: Fetch Store Locations from Supabase
+  useEffect(() => {
+    async function fetchStores() {
+      try {
+        const { data, error } = await supabase
+          .from('store_locations')
+          .select('name, address, phone, latitude, longitude')
+          .order('created_at', { ascending: true });
+          
+        if (error) throw error;
+
+        if (data) {
+          // Map the database columns to the lat/lng keys expected by the math function
+          const formattedStores = data.map(store => ({
+            ...store,
+            lat: Number(store.latitude),
+            lng: Number(store.longitude)
+          }));
+          setStoreLocations(formattedStores);
+        }
+      } catch (err) {
+        console.error("Failed to fetch store locations:", err);
+      }
+    }
+    fetchStores();
+  }, []);
+
+  // Fetch Categories from Supabase
   useEffect(() => {
     const fetchCategories = async () => {
       setIsLoadingCats(true);
@@ -112,7 +165,7 @@ export function Header() {
           let closest = null;
           let minDistance = Infinity;
 
-          STORES_DATA.forEach(store => {
+          storeLocations.forEach(store => {
             if (store.lat && store.lng) {
               const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
               if (dist < minDistance) {
@@ -164,7 +217,7 @@ export function Header() {
         const userLat = parseFloat(data[0].lat);
         const userLng = parseFloat(data[0].lon);
 
-        STORES_DATA.forEach(store => {
+        storeLocations.forEach(store => {
           if (store.lat && store.lng) {
             const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
             if (dist < minDistance) {
@@ -181,7 +234,7 @@ export function Header() {
         const lowerQuery = query.toLowerCase();
         const keywords = lowerQuery.split(/\s+/);
         
-        const matches = STORES_DATA.filter(store => {
+        const matches = storeLocations.filter(store => {
           const storeSearchableText = `${store.name} ${store.address} ${store.phone || ""}`.toLowerCase();
           return keywords.every(keyword => storeSearchableText.includes(keyword));
         });
@@ -302,9 +355,26 @@ export function Header() {
           </div>
 
           <nav className="flex items-center gap-5">
-            <Link to="/login" aria-label="Account" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
-              <User strokeWidth={1.5} className="h-[22px] w-[22px]" />
-            </Link>
+          {currentUser ? (
+    <div className="relative group flex items-center cursor-pointer">
+      <span className="text-[12px] font-sans font-bold text-[#4A1F58] uppercase tracking-wider group-hover:text-[#C9A15B] transition-colors">
+        Hi, {currentUser.full_name?.split(' ')[0] || 'User'}
+      </span>
+      
+      {/* Simple Hover Dropdown for Logout */}
+      <div className="absolute top-full right-0 mt-4 w-40 bg-white border border-[#E9D8C3] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all rounded-sm z-50">
+        <div className="flex flex-col py-2">
+          <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Profile</Link>
+          <Link to="/orders" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Orders</Link>
+          <button onClick={handleLogout} className="text-left px-4 py-2 text-xs font-sans text-rose-600 hover:bg-rose-50 w-full">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <Link to="/login" aria-label="Account" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
+      <User strokeWidth={1.5} className="h-[22px] w-[22px]" />
+    </Link>
+  )}
             <Link to="/wishlist" aria-label="Wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
               <Heart strokeWidth={1.5} className="h-[22px] w-[22px]" />
             </Link>
@@ -351,7 +421,7 @@ export function Header() {
 
           {nearestStore ? (
              <div 
-               onClick={() => { setIsLocationMenuOpen(false); navigate({ to: "/stores", search: { q: nearestStore.name } }); }}
+               onClick={() => { setIsLocationMenuOpen(false); navigate({ to: "/stores", search: { q: nearestStore.name } as any }); }}
                className="flex items-center gap-4 bg-[#F7F1E8] border border-[#E9D8C3] rounded-sm p-4 hover:border-[#C9A15B] transition-all mb-4 group cursor-pointer"
              >
                 <div className="bg-[#4A1F58] text-white rounded-sm w-12 h-12 flex flex-col items-center justify-center shrink-0">
@@ -579,9 +649,23 @@ export function Header() {
 
             {/* Sticky Bottom Actions */}
             <div className="bg-[#4A1F58] p-6 flex flex-col gap-5 text-white shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] relative z-20">
-               <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
-                 Log In / Sign Up
-               </Link>
+            {currentUser ? (
+    <div className="flex flex-col gap-4 border-b border-white/10 pb-4 mb-1">
+      <span className="text-[12px] font-sans font-bold text-[#C9A15B] uppercase tracking-widest">
+        Welcome back, {currentUser.full_name?.split(' ')[0]}
+      </span>
+      <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
+        My Profile & Orders
+      </Link>
+      <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="text-left text-[15px] font-sans font-medium text-rose-300 hover:text-rose-200 transition-colors">
+        Sign Out
+      </button>
+    </div>
+  ) : (
+    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
+      Log In / Sign Up
+    </Link>
+  )}
                <Link to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
                  Wishlist
                </Link>

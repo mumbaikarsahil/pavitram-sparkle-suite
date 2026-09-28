@@ -14,9 +14,11 @@ import { Route as TrackOrderRouteImport } from './routes/track-order'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
+import { Route as AddressesRouteImport } from './routes/addresses'
 import { Route as SoonRouteImport } from './routes/Soon'
 import { Route as ShopRouteImport } from './routes/Shop'
 import { Route as SearchRouteImport } from './routes/Search'
@@ -56,6 +58,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -69,6 +76,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddressesRoute = AddressesRouteImport.update({
+  id: '/addresses',
+  path: '/addresses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SoonRoute = SoonRouteImport.update({
@@ -144,9 +156,11 @@ export interface FileRoutesByFullPath {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
+  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
@@ -167,9 +181,11 @@ export interface FileRoutesByTo {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
+  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
@@ -191,9 +207,11 @@ export interface FileRoutesById {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
+  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
@@ -216,9 +234,11 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
+    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/sitemap.xml'
     | '/stores'
     | '/success'
@@ -239,9 +259,11 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
+    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/sitemap.xml'
     | '/stores'
     | '/success'
@@ -262,9 +284,11 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
+    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/sitemap.xml'
     | '/stores'
     | '/success'
@@ -286,9 +310,11 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   ShopRoute: typeof ShopRoute
   SoonRoute: typeof SoonRoute
+  AddressesRoute: typeof AddressesRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
+  OrdersRoute: typeof OrdersRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StoresRoute: typeof StoresRoute
   SuccessRoute: typeof SuccessRoute
@@ -340,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -359,6 +392,13 @@ declare module '@tanstack/react-router' {
       path: '/cart'
       fullPath: '/cart'
       preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/addresses': {
+      id: '/addresses'
+      path: '/addresses'
+      fullPath: '/addresses'
+      preLoaderRoute: typeof AddressesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/Soon': {
@@ -462,9 +502,11 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   ShopRoute: ShopRoute,
   SoonRoute: SoonRoute,
+  AddressesRoute: AddressesRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
+  OrdersRoute: OrdersRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StoresRoute: StoresRoute,
   SuccessRoute: SuccessRoute,
