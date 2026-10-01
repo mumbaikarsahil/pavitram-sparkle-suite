@@ -63,12 +63,13 @@ function AuthPage() {
     try {
       const res = await verifyOtpFn({ data: { phone, otp } });
 
-localStorage.setItem(
-  "pavitram_user",
-  JSON.stringify(res.customer)
-);
+      // 1. Save to localStorage
+      localStorage.setItem("pavitram_user", JSON.stringify(res.customer));
+      
+      // 2. DISPATCH EVENT HERE: Instantly updates the Header
+      window.dispatchEvent(new Event("authStateChange"));
 
-navigate({ to: "/Account" });
+      navigate({ to: "/Account" });
       
     } catch (err: any) {
       setErrorMsg(err.message || "Verification failed.");
@@ -87,7 +88,6 @@ navigate({ to: "/Account" });
         className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
       />
 
-      {/* ✨ FIXED: Removed flex-1 so the card wraps its content naturally instead of stretching */}
       <div className="w-full flex flex-col justify-center max-w-[440px] bg-white md:shadow-[0_10px_40px_rgba(74,31,88,0.05)] md:border md:border-[#E9D8C3] md:rounded-sm overflow-hidden relative min-h-[calc(100vh-56px)] md:min-h-fit md:h-auto z-10 my-0 md:my-8">
         
         {/* Top Gold Accent Bar */}
@@ -96,7 +96,6 @@ navigate({ to: "/Account" });
         <div className="p-8 md:p-10 flex flex-col">
           
           {step === 'phone' ? (
-            // ✨ FIXED: Removed flex-1 from animation wrapper
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col">
               
               <div className="text-center mb-10">
@@ -109,7 +108,6 @@ navigate({ to: "/Account" });
                 </p>
               </div>
 
-              {/* ✨ FIXED: Removed flex-1 from form */}
               <form onSubmit={handleSendOtp} className="flex flex-col">
                 <div className="flex gap-2">
                   <span className="flex items-center justify-center px-4 border border-[#E9D8C3] rounded-sm bg-[#F7F1E8]/50 text-sm font-bold text-[#4A1F58]">
@@ -128,7 +126,6 @@ navigate({ to: "/Account" });
                 
                 {errorMsg && <p className="text-[11px] text-rose-500 mt-3 font-medium">{errorMsg}</p>}
 
-                {/* ✨ FIXED: Changed mt-auto pt-8 to just mt-8 to close the massive gap */}
                 <div className="mt-8">
                   <label className="flex items-start gap-3 cursor-pointer group mb-6">
                     <input 

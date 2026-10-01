@@ -35,3 +35,11 @@ Allow: /
 # Allow Google Gemini grounding
 User-agent: Google-Extended
 Allow: /
+
+User-agent: *
+Disallow: /wp-admin/
+Disallow: /wp-content/
+Disallow: /wp-includes/
+Disallow: /products/detail/
+
+Sitemap: https://www.pavitram.co/sitemap.xml

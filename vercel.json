@@ -1,0 +1,16 @@
+{
+    "rewrites": [
+      {
+        "source": "/products/detail/(.*)",
+        "destination": "/blocked.html"
+      },
+      {
+        "source": "/wp-(.*)",
+        "destination": "/blocked.html"
+      },
+      {
+        "source": "/xmlrpc.php",
+        "destination": "/blocked.html"
+      }
+    ]
+  }

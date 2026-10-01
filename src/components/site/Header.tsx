@@ -54,23 +54,56 @@ export function Header() {
   // Add this near your other states in Header.tsx
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Add this useEffect to check for the logged-in user on load
+  // Add this useEffect to check for the logged-in user on load and on login
   useEffect(() => {
-    const storedUser = localStorage.getItem("pavitram_user");
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse user data");
+    const checkUser = () => {
+      const storedUser = localStorage.getItem("pavitram_user");
+      if (storedUser) {
+        try {
+          setCurrentUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error("Failed to parse user data");
+        }
+      } else {
+        setCurrentUser(null);
       }
-    }
+    };
+
+    // 1. Check on initial mount
+    checkUser();
+
+    // 2. Listen for login/logout events from other components
+    window.addEventListener("authStateChange", checkUser);
+
+    // 3. Cleanup listener on unmount
+    return () => window.removeEventListener("authStateChange", checkUser);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("pavitram_user");
-    setCurrentUser(null);
-    navigate({ to: '/' });
-  };
+  // Add this useEffect to check for the logged-in user on load and on login
+  useEffect(() => {
+    const checkUser = () => {
+      const storedUser = localStorage.getItem("pavitram_user");
+      if (storedUser) {
+        try {
+          setCurrentUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error("Failed to parse user data");
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    };
+
+    // 1. Check on initial mount
+    checkUser();
+
+    // 2. Listen for login/logout events from other components
+    window.addEventListener("authStateChange", checkUser);
+
+    // 3. Cleanup listener on unmount
+    return () => window.removeEventListener("authStateChange", checkUser);
+  }, []);
+
 
   // Handle clicking outside the location menu
   useEffect(() => {
@@ -146,6 +179,13 @@ export function Header() {
 
     fetchCategories();
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("pavitram_user");
+    setCurrentUser(null);
+    window.dispatchEvent(new Event("authStateChange")); // Add this
+    navigate({ to: '/' });
+  };
 
   const topCategories = categories.filter((cat) => !cat.parent_id);
   const subCategories = activeParent
