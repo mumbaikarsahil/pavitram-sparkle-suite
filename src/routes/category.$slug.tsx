@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Loader2, PackageX, SlidersHorizontal, ChevronDown, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,6 @@ function CategoryPage() {
   
   const [category, setCategory] = useState<any>(null);
   const [parentCategory, setParentCategory] = useState<any>(null);
-  const [subCategories, setSubCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,28 +27,58 @@ function CategoryPage() {
   const [selectedPrices, setSelectedPrices] = useState<Set<string>>(new Set());
   const [selectedMetals, setSelectedMetals] = useState<Set<string>>(new Set());
   const [selectedPurities, setSelectedPurities] = useState<Set<string>>(new Set());
-  const [selectedSubCats, setSelectedSubCats] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<string>("featured");
   const [quickFilter, setQuickFilter] = useState<string>("all");
+
+  const topRef = useRef<HTMLDivElement>(null);
+
+  // ✨ FIX 1: Flawless Scroll Restoration
+  useEffect(() => {
+    if (!isLoading) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (topRef.current) {
+        topRef.current.scrollIntoView({ behavior: 'instant', block: 'start' });
+      }
+    }
+  }, [isLoading, slug]);
 
   useEffect(() => {
     const fetchCategoryAndProducts = async () => {
       setIsLoading(true);
       try {
-        // --- 1. CHECK FOR SPECIAL SLUGS FIRST ---
-        if (slug === "trending" || slug === "bestsellers") {
+        const normalizedSlug = slug.toLowerCase().trim();
+
+        // --- 0. CHECK FOR ALL PRODUCTS CATCH-ALL ---
+        if (["all", "shop", "products"].includes(normalizedSlug)) {
+          setCategory({ name: "All Collections", slug: normalizedSlug });
+          setParentCategory(null);
+    
+          const { data: allProdData, error: allProdError } = await supabase
+            .from("ecommerce_products")
+            .select("id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, category:ecommerce_categories(name)")
+            .eq("is_live", true)
+            .order("created_at", { ascending: false });
+    
+          if (allProdError) throw allProdError;
+          setProducts(allProdData || []);
+          setIsLoading(false);
+          return;
+        }
+
+        // --- 1. CHECK FOR SPECIAL AGGREGATE SLUGS (Trending / Bestsellers) ---
+        if (normalizedSlug === "trending" || normalizedSlug === "bestsellers") {
           setCategory({
-            name: slug === "trending" ? "Trending Now" : "Our Bestsellers",
-            slug: slug
+            name: normalizedSlug === "trending" ? "Trending Now" : "Our Bestsellers",
+            slug: normalizedSlug
           });
           setParentCategory(null);
-          setSubCategories([]);
 
           const { data: specialProdData, error: specialProdError } = await supabase
             .from("ecommerce_products")
             .select("id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, category:ecommerce_categories(name)")
             .eq("is_live", true)
-            .eq(slug === "trending" ? "is_trending" : "is_bestseller", true)
+            .eq(normalizedSlug === "trending" ? "is_trending" : "is_bestseller", true)
             .order("created_at", { ascending: false });
 
           if (specialProdError) throw specialProdError;
@@ -58,52 +87,142 @@ function CategoryPage() {
           return;
         }
 
-        // --- 2. STANDARD CATEGORY FETCHING ---
+        // ✨ FIX 2: BULLETPROOF DYNAMIC PRICE SLUG PARSER ---
+        let isDynamicPrice = false;
+        let priceMin = 0;
+        let priceMax = 99999999;
+        let priceTitle = "";
+
+        const str = normalizedSlug.replace(/[^a-z0-9-]/g, ''); // strip out junk
+
+        if (str.includes('under') || str.includes('below')) {
+          const val = parseInt(str.replace(/\D/g, ''));
+          if (!isNaN(val)) {
+            priceMax = (str.includes('k') && val < 1000) ? val * 1000 : val;
+            priceTitle = `Under ₹${priceMax.toLocaleString('en-IN')}`;
+            isDynamicPrice = true;
+          }
+        } else if (str.includes('above') || str.includes('over')) {
+          const val = parseInt(str.replace(/\D/g, ''));
+          if (!isNaN(val)) {
+            priceMin = (str.includes('k') && val < 1000) ? val * 1000 : val;
+            priceTitle = `Above ₹${priceMin.toLocaleString('en-IN')}`;
+            isDynamicPrice = true;
+          }
+        } else if (str.includes('-')) {
+          const parts = str.split('-');
+          const min = parseInt(parts[0].replace(/\D/g, ''));
+          const max = parseInt(parts[1].replace(/\D/g, ''));
+          if (!isNaN(min) && !isNaN(max)) {
+            priceMin = (parts[0].includes('k') && min < 1000) ? min * 1000 : min;
+            priceMax = (parts[1].includes('k') && max < 1000) ? max * 1000 : max;
+            priceTitle = `₹${priceMin.toLocaleString('en-IN')} - ₹${priceMax.toLocaleString('en-IN')}`;
+            isDynamicPrice = true;
+          }
+        }
+
+        if (isDynamicPrice) {
+          setCategory({ name: priceTitle, slug: normalizedSlug, isPriceRange: true });
+          setParentCategory(null);
+
+          const { data: priceProdData, error: priceProdError } = await supabase
+            .from("ecommerce_products")
+            .select("id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, category:ecommerce_categories(name)")
+            .eq("is_live", true)
+            .gte("mrp", priceMin)
+            .lte("mrp", priceMax)
+            .order("created_at", { ascending: false });
+
+          if (priceProdError) throw priceProdError;
+          setProducts(priceProdData || []);
+          setIsLoading(false);
+          return;
+        }
+
+        // --- 3. CHECK FOR OCCASION SLUGS (Using Junction Table) ---
+        const { data: occData } = await supabase
+          .from("ecommerce_occasions")
+          .select("id, title, slug")
+          .eq("slug", normalizedSlug)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (occData) {
+          setCategory({ name: occData.title, slug: occData.slug, isOccasion: true });
+          setParentCategory(null);
+
+          // Fetch products through the many-to-many junction table
+          const { data: junctionData, error: junctionError } = await supabase
+            .from("ecommerce_product_occasions")
+            .select(`
+               ecommerce_products (
+                  id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, is_live, category:ecommerce_categories(name)
+               )
+            `)
+            .eq("occasion_id", occData.id);
+
+          if (junctionError) throw junctionError;
+
+          // Extract the nested products and filter out any that aren't live
+          const occasionProducts = junctionData
+            ?.map((j: any) => j.ecommerce_products)
+            .filter((p: any) => p != null && p.is_live) || [];
+            
+          setProducts(occasionProducts);
+          setIsLoading(false);
+          return;
+        }
+
+        // --- 4. STANDARD CATEGORY FETCHING ---
         const { data: catData, error: catError } = await supabase
           .from("ecommerce_categories")
           .select("id, name, slug, parent_id")
-          .ilike("slug", slug) 
+          .ilike("slug", normalizedSlug) 
           .eq("is_active", true)
           .maybeSingle(); 
 
         if (catError) throw catError;
+        
+        if (!catData) {
+          setCategory(null);
+          setIsLoading(false);
+          return;
+        }
+
         setCategory(catData);
 
-        if (catData) {
-          if (catData.parent_id) {
-            const { data: pData } = await supabase
-              .from("ecommerce_categories")
-              .select("id, name, slug")
-              .eq("id", catData.parent_id)
-              .maybeSingle();
-            setParentCategory(pData);
-          } else {
-            setParentCategory(null);
-          }
-
-          const { data: subCatsData } = await supabase
+        if (catData.parent_id) {
+          const { data: pData } = await supabase
             .from("ecommerce_categories")
             .select("id, name, slug")
-            .eq("parent_id", catData.id)
-            .eq("is_active", true);
-
-          setSubCategories(subCatsData || []);
-
-          const categoryIdsToFetch = [catData.id];
-          if (subCatsData && subCatsData.length > 0) {
-            subCatsData.forEach(sub => categoryIdsToFetch.push(sub.id));
-          }
-
-          const { data: prodData, error: prodError } = await supabase
-            .from("ecommerce_products")
-            .select("id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, category:ecommerce_categories(name)")
-            .in("category_id", categoryIdsToFetch) 
-            .eq("is_live", true)
-            .order("created_at", { ascending: false });
-
-          if (prodError) throw prodError;
-          setProducts(prodData || []);
+            .eq("id", catData.parent_id)
+            .maybeSingle();
+          setParentCategory(pData);
+        } else {
+          setParentCategory(null);
         }
+
+        const { data: subCatsData } = await supabase
+          .from("ecommerce_categories")
+          .select("id, name, slug")
+          .eq("parent_id", catData.id)
+          .eq("is_active", true);
+
+        const categoryIdsToFetch = [catData.id];
+        if (subCatsData && subCatsData.length > 0) {
+          subCatsData.forEach(sub => categoryIdsToFetch.push(sub.id));
+        }
+
+        const { data: prodData, error: prodError } = await supabase
+          .from("ecommerce_products")
+          .select("id, title, slug, mrp, cover_image_url, gallery_images, metal_type, purity_karat, category_id, created_at, category:ecommerce_categories(name)")
+          .in("category_id", categoryIdsToFetch) 
+          .eq("is_live", true)
+          .order("created_at", { ascending: false });
+
+        if (prodError) throw prodError;
+        setProducts(prodData || []);
+        
       } catch (err) {
         console.error("Error fetching category data:", err);
       } finally {
@@ -114,18 +233,31 @@ function CategoryPage() {
     if (slug) fetchCategoryAndProducts();
   }, [slug]);
 
-  const { availableMetals, availablePurities } = useMemo(() => {
+  // ✨ FIX 3: DYNAMIC SIDEBAR GENERATION 
+  // Extracts filters directly from the loaded products. Works perfectly across Price, Occasion, and Trend collections.
+  const { availableMetals, availablePurities, dynamicCategories } = useMemo(() => {
     const metals = new Map<string, number>();
     const purities = new Map<string, number>();
+    const cats = new Map<string, { id: string, name: string, count: number }>();
 
     products.forEach(p => {
       if (p.metal_type) metals.set(p.metal_type, (metals.get(p.metal_type) || 0) + 1);
       if (p.purity_karat) purities.set(p.purity_karat, (purities.get(p.purity_karat) || 0) + 1);
+      
+      if (p.category_id && p.category?.name) {
+        const existing = cats.get(p.category_id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          cats.set(p.category_id, { id: p.category_id, name: p.category.name, count: 1 });
+        }
+      }
     });
 
     return {
       availableMetals: Array.from(metals.entries()).map(([name, count]) => ({ name, count })),
-      availablePurities: Array.from(purities.entries()).map(([name, count]) => ({ name, count }))
+      availablePurities: Array.from(purities.entries()).map(([name, count]) => ({ name, count })),
+      dynamicCategories: Array.from(cats.values()).sort((a, b) => a.name.localeCompare(b.name))
     };
   }, [products]);
 
@@ -136,13 +268,14 @@ function CategoryPage() {
       result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
-    if (selectedSubCats.size > 0) {
-      result = result.filter(p => selectedSubCats.has(p.category_id));
+    if (selectedCategories.size > 0) {
+      result = result.filter(p => selectedCategories.has(p.category_id));
     }
 
+    // ✨ FIX 4: Safe MRP filtering (converts strings to numbers correctly)
     if (selectedPrices.size > 0) {
       result = result.filter(p => {
-        const mrp = Number(p.mrp);
+        const mrp = Number(p.mrp) || 0;
         return Array.from(selectedPrices).some(priceId => {
           const range = PRICE_RANGES.find(r => r.id === priceId);
           return range && mrp >= range.min && mrp <= range.max;
@@ -158,12 +291,12 @@ function CategoryPage() {
       result = result.filter(p => p.purity_karat && selectedPurities.has(p.purity_karat));
     }
 
-    if (sortBy === "price_asc") result.sort((a, b) => Number(a.mrp) - Number(b.mrp));
-    if (sortBy === "price_desc") result.sort((a, b) => Number(b.mrp) - Number(a.mrp));
+    if (sortBy === "price_asc") result.sort((a, b) => (Number(a.mrp) || 0) - (Number(b.mrp) || 0));
+    if (sortBy === "price_desc") result.sort((a, b) => (Number(b.mrp) || 0) - (Number(a.mrp) || 0));
     if (sortBy === "newest") result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return result;
-  }, [products, selectedPrices, selectedMetals, selectedPurities, selectedSubCats, sortBy, quickFilter]);
+  }, [products, selectedPrices, selectedMetals, selectedPurities, selectedCategories, sortBy, quickFilter]);
 
   const toggleSet = (set: Set<string>, value: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) => {
     const newSet = new Set(set);
@@ -176,11 +309,11 @@ function CategoryPage() {
     setSelectedPrices(new Set());
     setSelectedMetals(new Set());
     setSelectedPurities(new Set());
-    setSelectedSubCats(new Set());
+    setSelectedCategories(new Set());
     setQuickFilter("all");
   };
 
-  const activeFilterCount = selectedPrices.size + selectedMetals.size + selectedPurities.size + selectedSubCats.size;
+  const activeFilterCount = selectedPrices.size + selectedMetals.size + selectedPurities.size + selectedCategories.size;
 
   if (isLoading) {
     return (
@@ -204,7 +337,7 @@ function CategoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans pb-24">
+    <div className="min-h-screen bg-white font-sans pb-24" ref={topRef}>
       
       {/* ✨ LUXURY CATEGORY HEADER */}
       <div className="bg-[#F7F1E8] border-b border-[#E9D8C3] relative overflow-hidden">
@@ -281,27 +414,23 @@ function CategoryPage() {
             </div>
 
             <div className="space-y-8">
-              {/* Filter Block: Product Types (Subcategories) */}
-              {subCategories.length > 0 && (
+              {/* ✨ FIX 3: DYNAMIC CATEGORY FILTER (Works across all collection types) */}
+              {dynamicCategories.length > 0 && (
                 <div>
                   <h3 className="text-[11px] font-sans font-bold tracking-[0.15em] uppercase text-[#302832] mb-5 flex items-center justify-between">
                     Style <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
                   </h3>
                   <div className="space-y-4">
-                    {subCategories.map((sub) => {
-                      const count = products.filter(p => p.category_id === sub.id).length;
-                      if (count === 0) return null;
-                      return (
-                        <label key={sub.id} className="flex items-center gap-3 cursor-pointer group">
-                          <div className={`w-4 h-4 rounded-sm border flex items-center justify-center transition-colors ${selectedSubCats.has(sub.id) ? 'bg-[#4A1F58] border-[#4A1F58]' : 'bg-white border-[#E9D8C3] group-hover:border-[#C9A15B]'}`}>
-                            {selectedSubCats.has(sub.id) && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                          </div>
-                          <input type="checkbox" className="hidden" onChange={() => toggleSet(selectedSubCats, sub.id, setSelectedSubCats)} />
-                          <span className="text-[13px] font-sans text-zinc-600 group-hover:text-[#4A1F58] transition-colors flex-1">{sub.name}</span>
-                          <span className="text-[10px] font-sans font-medium text-zinc-400">({count})</span>
-                        </label>
-                      );
-                    })}
+                    {dynamicCategories.map((cat) => (
+                      <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`w-4 h-4 rounded-sm border flex items-center justify-center transition-colors ${selectedCategories.has(cat.id) ? 'bg-[#4A1F58] border-[#4A1F58]' : 'bg-white border-[#E9D8C3] group-hover:border-[#C9A15B]'}`}>
+                          {selectedCategories.has(cat.id) && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        <input type="checkbox" className="hidden" onChange={() => toggleSet(selectedCategories, cat.id, setSelectedCategories)} />
+                        <span className="text-[13px] font-sans text-zinc-600 group-hover:text-[#4A1F58] transition-colors flex-1">{cat.name}</span>
+                        <span className="text-[10px] font-sans font-medium text-zinc-400">({cat.count})</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
@@ -313,7 +442,7 @@ function CategoryPage() {
                 </h3>
                 <div className="space-y-4">
                   {PRICE_RANGES.map((range) => {
-                    const count = products.filter(p => Number(p.mrp) >= range.min && Number(p.mrp) <= range.max).length;
+                    const count = products.filter(p => (Number(p.mrp) || 0) >= range.min && (Number(p.mrp) || 0) <= range.max).length;
                     if (count === 0) return null;
                     return (
                       <label key={range.id} className="flex items-center gap-3 cursor-pointer group">
@@ -447,10 +576,10 @@ function CategoryPage() {
                         )}
                       </div>
                       
-                      {/* ✨ FIXED TYPOGRAPHY & LAYOUT: Content Area */}
+                      {/* Content Area */}
                       <div className="flex flex-col text-left pt-1 pb-2">
                         <span className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.15em] mb-1 line-clamp-1">
-                          {product.category?.name || category.name || "Jewellery"}
+                          {product.category?.name || category?.name || "Jewellery"}
                         </span>
                         <h4 className="text-[13px] md:text-[14px] font-sans font-medium text-[#302832] line-clamp-2 leading-snug mb-1.5 group-hover:text-[#4A1F58] transition-colors">
                           {product.title || "Unnamed Product"}

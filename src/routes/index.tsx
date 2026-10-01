@@ -25,29 +25,33 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const BG_PATTERN = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp";
 
 export function Index() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [premiumProducts, setPremiumProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate({ from: '/' });
+  
+  // Decoupled Loading States for Amazon-style progressive rendering
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
+  const [isContentLoading, setIsContentLoading] = useState(true);
   
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
   const [tickers, setTickers] = useState<any[]>([]);
+  
+  const [categories, setCategories] = useState<any[]>([]);
+  const [premiumProducts, setPremiumProducts] = useState<any[]>([]);
   const [promises, setPromises] = useState<any[]>([]);
   const [cmsSections, setCmsSections] = useState<any>({});
   const [occasions, setOccasions] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
-  const [priceCollections, setPriceCollections] = useState<any[]>([]); // ✨ NEW: Dynamic Prices
+  const [priceCollections, setPriceCollections] = useState<any[]>([]);
   const [experienceVideos, setExperienceVideos] = useState<any[]>([]);
   
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false); 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
   const [activePromiseIndex, setActivePromiseIndex] = useState(0);
   const [activeOccasionIndex, setActiveOccasionIndex] = useState(0);
 
   const [email, setEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
-
-  const navigate = useNavigate({ from: '/' });
   const [storeQuery, setStoreQuery] = useState("");
   const [isLocating, setIsLocating] = useState(false);
 
@@ -55,34 +59,59 @@ export function Index() {
   const occasionScrollRef = useRef<HTMLDivElement>(null);
   const storyScrollRef = useRef<HTMLDivElement>(null);
 
+  // ✨ HELPER: Safely extracts the slug from database links for TanStack Router
+  const getSafeSlug = (item: any) => {
+    if (item?.slug) return item.slug;
+    if (item?.link) {
+      const parts = item.link.split('/').filter(Boolean);
+      return parts[parts.length - 1] || "all";
+    }
+    return "all";
+  };
+
+  // 1. FAST PATH: Load Above-The-Fold Data Instantly
   useEffect(() => {
-    const fetchHomepageData = async () => {
-      setIsLoading(true);
+    const fetchHeroData = async () => {
+      try {
+        const [bannersRes, tickersRes] = await Promise.all([
+          supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order")
+        ]);
+        if (bannersRes.data) setHeroBanners(bannersRes.data);
+        if (tickersRes.data) setTickers(tickersRes.data);
+      } catch (err) {
+        console.error("Error fetching hero data:", err);
+      } finally {
+        setIsHeroLoading(false);
+      }
+    };
+    fetchHeroData();
+  }, []);
+
+  // 2. SLOW PATH: Load Below-The-Fold Data in Background
+  useEffect(() => {
+    const fetchHeavyContent = async () => {
       try {
         const [
-          catsRes, prodsRes, bannersRes, tickersRes, 
-          promisesRes, cmsRes, occRes, revRes, pricesRes
+          catsRes, prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
         ] = await Promise.all([
-          supabase.from("ecommerce_categories").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_products").select("*, category:ecommerce_categories(name)").eq("is_live", true),
-          supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
           supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
           supabase.from("ecommerce_cms_sections").select("*"),
           supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
           supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order")
+          supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
         ]);
 
         if (catsRes.data) setCategories(catsRes.data.filter(c => !c.parent_id));
-        if (prodsRes.data) setPremiumProducts(prodsRes.data.filter(p => p.is_bestseller).slice(0, 15));
-        
-        if (bannersRes.data) setHeroBanners(bannersRes.data);
-        if (tickersRes.data) setTickers(tickersRes.data);
+        if (prodsRes.data) setPremiumProducts(prodsRes.data);
         if (promisesRes.data) setPromises(promisesRes.data);
         if (occRes.data) setOccasions(occRes.data);
         if (revRes.data) setReviews(revRes.data);
         if (pricesRes.data) setPriceCollections(pricesRes.data);
+        if (videoRes.data) setExperienceVideos(videoRes.data);
 
         if (cmsRes.data) {
           const cmsMap = cmsRes.data.reduce((acc, curr) => {
@@ -91,14 +120,13 @@ export function Index() {
           }, {});
           setCmsSections(cmsMap);
         }
-
       } catch (err) {
-        console.error("Error fetching homepage data:", err);
+        console.error("Error fetching content data:", err);
       } finally {
-        setIsLoading(false);
+        setIsContentLoading(false);
       }
     };
-    fetchHomepageData();
+    fetchHeavyContent();
   }, []);
 
   const handleSubscribe = async () => {
@@ -106,13 +134,11 @@ export function Index() {
       toast.error("Please enter a valid email address.");
       return;
     }
-
     const lastSubscribed = localStorage.getItem("lastSubscribedTime");
     if (lastSubscribed && Date.now() - parseInt(lastSubscribed) < 60000) {
       toast.error("You're doing that too fast. Please wait a minute.");
       return;
     }
-
     setIsSubscribing(true);
     try {
       const { error } = await supabase.from("ecommerce_newsletter_subscribers").insert([{ email }]);
@@ -138,22 +164,6 @@ export function Index() {
       navigate({ to: "/stores", search: { q: storeQuery.trim() } });
     }
   };
-
-  // Add this useEffect to fetch the active videos
-  useEffect(() => {
-    async function fetchVideos() {
-      const { data } = await supabase
-        .from('ecommerce_experience_videos')
-        .select('video_id')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-      
-      if (data && data.length > 0) {
-        setExperienceVideos(data);
-      }
-    }
-    fetchVideos();
-  }, []);
 
   const handleAutoDetect = () => {
     setIsLocating(true);
@@ -272,13 +282,14 @@ export function Index() {
         </div>
       )}
 
+      {/* HERO SECTION - LOADED INSTANTLY */}
       <section className="relative w-full overflow-hidden bg-zinc-900">
         <div 
           className="relative w-full h-[75vh] md:h-[60vh] lg:h-[65vh] overflow-hidden group bg-[#E9D8C3]"
           onMouseEnter={() => setIsPaused(true)} 
           onMouseLeave={() => setIsPaused(false)}
         >
-          {isLoading ? (
+          {isHeroLoading ? (
             <div className="w-full h-full flex items-center justify-center bg-[#E9D8C3]/30 animate-pulse">
               <Loader2 className="w-8 h-8 text-[#C9A15B] animate-spin opacity-50" />
             </div>
@@ -292,6 +303,7 @@ export function Index() {
                   <Link 
                     key={banner.id} 
                     to={banner.link || "/"}
+                    preload="intent"
                     className="w-full h-full shrink-0 relative block"
                   >
                     <img 
@@ -351,6 +363,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
         
@@ -365,7 +378,7 @@ export function Index() {
           </div>
           
           <div className="w-full">
-            {isLoading ? (
+            {isContentLoading ? (
               <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
                 {[...Array(6)].map((_, i) => {
                   const aspectRatios = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
@@ -408,11 +421,14 @@ export function Index() {
                       key={cat.id} 
                       to="/category/$slug" 
                       params={{ slug: cat.slug }} 
+                      preload="intent"
                       className={`group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-sm hover:shadow-xl transition-all duration-500 block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`}
                     >
                       {cat.image_url ? (
                         <img 
                           src={cat.image_url} 
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.05] transition-all duration-1000 ease-out pointer-events-none" 
                           alt={cat.name} 
                         />
@@ -446,6 +462,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
@@ -456,7 +473,7 @@ export function Index() {
               <p className="text-xs md:text-sm text-zinc-500 mt-3 font-sans tracking-wide">The most loved designs by our community.</p>
             </div>
             
-            <Link to="/category/$slug" params={{ slug: "bestsellers" }} 
+            <Link to="/category/$slug" params={{ slug: "bestsellers" }} preload="intent"
               className="text-[11px] md:text-xs font-sans font-bold text-[#4A1F58] uppercase tracking-widest hover:text-[#C9A15B] transition-colors flex items-center gap-2"
             >
               Explore All <ArrowRight className="w-4 h-4" />
@@ -464,7 +481,7 @@ export function Index() {
           </div>
           
           <div className="flex overflow-x-auto hide-scrollbar gap-4 md:gap-8 pb-4 items-stretch w-full">
-            {isLoading ? (
+            {isContentLoading ? (
               <>
                 {[...Array(5)].map((_, i) => (
                   <div key={`skel-${i}`} className="shrink-0 snap-start w-[140px] md:w-[240px] flex flex-col">
@@ -481,6 +498,7 @@ export function Index() {
                   key={product.id}
                   to="/product/$slug"
                   params={{ slug: product.slug || product.id }}
+                  preload="intent"
                   className="shrink-0 snap-start w-[140px] md:w-[240px] flex flex-col group cursor-pointer"
                 >
                   <div className="aspect-[4/5] w-full bg-[#F7F1E8] rounded-xl md:rounded-sm overflow-hidden relative shrink-0 mb-3 md:mb-4 border border-[#E9D8C3] shadow-sm group-hover:shadow-md group-hover:border-[#C9A15B] transition-all duration-300">
@@ -488,6 +506,8 @@ export function Index() {
                       <img 
                         src={product.cover_image_url} 
                         alt={product.title} 
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out mix-blend-multiply" 
                       />
                     ) : (
@@ -525,6 +545,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
 
@@ -536,6 +557,8 @@ export function Index() {
               <div className="relative z-10 aspect-[4/5] md:aspect-[3/4] overflow-hidden rounded-sm shadow-lg">
                 <img 
                   src={whyImage} 
+                  loading="lazy"
+                  decoding="async"
                   alt="Why Pavitram" 
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out" 
                 />
@@ -597,6 +620,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Pattern" 
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
   
@@ -608,8 +632,9 @@ export function Index() {
           
           <div className="flex flex-col gap-3 md:gap-6">
             {priceCollections[0] && (
-              <Link to={priceCollections[0].link} className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                <img src={priceCollections[0].image_url} alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
+              // ✨ FIX: Passes the exact slug so category.$slug.tsx can catch and parse it
+              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[0]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
+                <img src={priceCollections[0].image_url} loading="lazy" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
                 <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                   <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
@@ -626,8 +651,8 @@ export function Index() {
 
             <div className="grid grid-cols-2 gap-3 md:gap-6">
               {[priceCollections[1], priceCollections[2]].map((item, idx) => item && (
-                <Link key={idx} to={item.link} className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] lg:aspect-[5/2] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                  <img src={item.image_url} alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
+                <Link key={idx} to="/category/$slug" params={{ slug: getSafeSlug(item) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] lg:aspect-[5/2] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
+                  <img src={item.image_url} loading="lazy" alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                   <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                     <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
@@ -644,8 +669,8 @@ export function Index() {
             </div>
             
             {priceCollections[3] && (
-              <Link to={priceCollections[3].link} className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                <img src={priceCollections[3].image_url} alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
+              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[3]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
+                <img src={priceCollections[3].image_url} loading="lazy" alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
                 <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                   <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
@@ -671,6 +696,7 @@ export function Index() {
             <div className="lg:absolute lg:inset-0 w-full h-full">
               <img 
                 src={harvestImage} 
+                loading="lazy"
                 alt="Pavitram Harvesting Plan" 
                 className="w-full h-full object-cover object-top opacity-80" 
               />
@@ -728,7 +754,7 @@ export function Index() {
             </div>
             
             <div className="relative z-10">
-              <Link to="/" className="inline-flex items-center text-[#C9A15B] hover:text-white text-[11px] md:text-xs font-sans font-bold uppercase tracking-[0.2em] transition-colors group">
+              <Link to="/harvesting" preload="intent" className="inline-flex items-center text-[#C9A15B] hover:text-white text-[11px] md:text-xs font-sans font-bold uppercase tracking-[0.2em] transition-colors group">
                 Start Your Plan <ArrowRight className="w-4 h-4 ml-3 group-hover:translate-x-2 transition-transform" />
               </Link>
             </div>
@@ -743,6 +769,7 @@ export function Index() {
           <img 
             src={BG_PATTERN} 
             alt="Decorative Floral" 
+            loading="lazy"
             className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
           />
           
@@ -781,11 +808,12 @@ export function Index() {
                 {occasions.map((occasion, idx) => (
                   <Link 
                     key={occasion.id || idx}
-                    to="/Search" 
-                    search={{ collection: occasion.slug }} 
+                    to="/category/$slug" 
+                    params={{ slug: occasion.slug }} 
+                    preload="intent"
                     className="shrink-0 snap-center w-[280px] md:w-[350px] group relative overflow-hidden bg-[#302832] rounded-xl md:rounded-sm aspect-[4/3] md:aspect-[5/4] shadow-md hover:shadow-xl transition-all duration-500"
                   >
-                    <img src={occasion.image_url} alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
+                    <img src={occasion.image_url} loading="lazy" alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                     <div className="absolute bottom-0 left-0 p-8 w-full text-center">
                       <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
@@ -818,6 +846,7 @@ export function Index() {
           <img 
             src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/store-front.webp"
             alt="Pavitram Showroom" 
+            loading="lazy"
             className="w-full h-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-black/20" />
@@ -907,7 +936,6 @@ export function Index() {
               ref={storyScrollRef}
               className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-[12.5vw] md:px-0"
             >
-              {/* ✨ CHANGED: Now mapping over the fetched state */}
               {experienceVideos.map((story, index) => (
                 <div 
                   key={index} 
@@ -918,6 +946,7 @@ export function Index() {
                     src={`https://www.youtube.com/embed/${story.video_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.video_id}&playsinline=1&rel=0&modestbranding=1`}
                     title={`Pavitram Experience ${index + 1}`}
                     frameBorder="0"
+                    loading="lazy"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
@@ -1021,6 +1050,7 @@ export function Index() {
         <img 
           src={BG_PATTERN} 
           alt="Decorative Floral" 
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
         />
 

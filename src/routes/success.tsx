@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, Package, ShoppingBag, FileText, Download, Loader2, X } from "lucide-react";
+import { CheckCircle2, Package, ShoppingBag, FileText, Download, Loader2, X, User } from "lucide-react";
 import { Logo } from "@/components/site/Logo"; 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -301,15 +301,12 @@ function SuccessPage() {
           </div>
 
           <div className="space-y-3 border-t border-zinc-100 pt-8">
+            {/* ✨ UPDATED ROUTE: Points to the unified Account dashboard */}
             <Link 
-              to="/track-order"
-              search={{ 
-                order_id: displayOrderId,
-                contact: orderData?.customer_phone || orderData?.customer_email || ''
-              } as any}
+              to="/Account"
               className="w-full bg-[#4A1F58] hover:bg-[#302832] text-white font-sans font-bold text-[10px] tracking-[0.2em] uppercase h-12 rounded-sm shadow-sm transition-colors flex items-center justify-center gap-2"
             >
-              <Package className="w-4 h-4" /> Track Your Order
+              <User className="w-4 h-4" /> View Order History
             </Link>
             
             <Link 

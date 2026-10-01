@@ -1,31 +1,69 @@
 import { createServerFn } from '@tanstack/react-start';
+import { getRequest } from '@tanstack/react-start/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { createSessionToken, setAuthCookie, clearAuthCookie } from '../session.server';
 
-// Initialize Admin Client securely (Runs ONLY on the server)
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getClientIp(): string {
+  const request = getRequest();
+  const forwarded = request?.headers?.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return request?.headers?.get('x-real-ip') || '127.0.0.1';
+}
+
 // ==========================================
-// 1. SEND OTP FUNCTION (With Rate Limiting)
+// 1. SECURED SEND OTP (With Multi-Layer Anti-Fraud)
 // ==========================================
 export const sendOtpFn = createServerFn({ method: 'POST' })
   .validator(z.object({ phone: z.string() }))
   .handler(async ({ data }) => {
     const { phone } = data;
+    const clientIp = getClientIp();
 
-    // Sanitize phone number
-    let formattedPhone = phone.replace(/\D/g, '');
-    if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
-    if (formattedPhone.length < 12) throw new Error("Invalid phone number format.");
+    // 1. Normalize phone
+    const rawDigits = phone.replace(/\D/g, '');
+    const basePhone = (rawDigits.startsWith('91') && rawDigits.length === 12) 
+      ? rawDigits.substring(2) 
+      : rawDigits;
+    const formattedPhone = `91${basePhone}`;
+
+    if (basePhone.length !== 10) {
+      throw new Error("Invalid mobile number. Please enter a valid 10-digit number.");
+    }
 
     const now = new Date();
-    const oneMinuteAgo = new Date(now.getTime() - 60 * 1000).toISOString();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const oneMinuteAgo = new Date(now.getTime() - 60 * 1000).toISOString();
 
-    // SECURITY CHECK 1: 60-Second Cooldown
+    // 🛡️ ANTI-FRAUD LAYER 1: IP Rate Limit (Max 3 OTPs / 10 mins per IP)
+    const { count: ipRecentRequests } = await supabaseAdmin
+      .from('otp_rate_limits')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip_address', clientIp)
+      .gte('created_at', tenMinutesAgo);
+
+    if (ipRecentRequests && ipRecentRequests >= 3) {
+      throw new Error("Too many verification attempts from this network. Please wait 10 minutes.");
+    }
+
+    // 🛡️ ANTI-FRAUD LAYER 2: IP 24-Hour Cap (Max 12 OTPs / 24 hours per IP)
+    const { count: ipDailyRequests } = await supabaseAdmin
+      .from('otp_rate_limits')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip_address', clientIp)
+      .gte('created_at', oneDayAgo);
+
+    if (ipDailyRequests && ipDailyRequests >= 12) {
+      throw new Error("Daily verification limit reached for this device. Please try again tomorrow.");
+    }
+
+    // 🛡️ ANTI-FRAUD LAYER 3: Phone 60-Second Cooldown
     const { data: recentOtp } = await supabaseAdmin
       .from('otp_verifications')
       .select('created_at')
@@ -35,25 +73,31 @@ export const sendOtpFn = createServerFn({ method: 'POST' })
 
     if (recentOtp) throw new Error("Please wait 60 seconds before requesting a new code.");
 
-    // SECURITY CHECK 2: Max 5 requests per 24 hours (Toll Fraud Protection)
-    const { count: dailyRequests } = await supabaseAdmin
+    // 🛡️ ANTI-FRAUD LAYER 4: Phone 24-Hour Cap (Max 5 requests per number)
+    const { count: dailyPhoneRequests } = await supabaseAdmin
       .from('otp_verifications')
       .select('id', { count: 'exact', head: true })
       .eq('phone', formattedPhone)
       .gte('created_at', oneDayAgo);
 
-    if (dailyRequests && dailyRequests >= 5) {
-      throw new Error("Maximum daily OTP requests reached. Please try again tomorrow.");
+    if (dailyPhoneRequests && dailyPhoneRequests >= 5) {
+      throw new Error("Maximum daily OTP requests reached for this number. Try again tomorrow.");
     }
 
-    // Generate 6-digit OTP and Expiry (5 minutes)
+    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
 
-    // Invalidate old pending OTPs
+    // Log IP usage for toll fraud protection
+    await supabaseAdmin.from('otp_rate_limits').insert({
+      ip_address: clientIp,
+      phone: formattedPhone
+    });
+
+    // Invalidate prior pending OTPs
     await supabaseAdmin.from('otp_verifications').delete().eq('phone', formattedPhone);
 
-    // Insert new OTP securely
+    // Save active OTP
     const { error: dbError } = await supabaseAdmin.from('otp_verifications').insert({
       phone: formattedPhone,
       otp_code: otp,
@@ -62,7 +106,21 @@ export const sendOtpFn = createServerFn({ method: 'POST' })
 
     if (dbError) throw new Error("Database error while generating OTP.");
 
-    // Dispatch to your ERP's Convo360 Wrapper
+    // Auto-resolve subscriber in Convo360 wrapper
+    try {
+      await fetch('https://www.biillojewel.co.in/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscriber.createByPhone',
+          payload: { phone: formattedPhone, name: "Pavitram Website User" }
+        })
+      });
+    } catch (e) {
+      console.warn("Subscriber auto-resolve skipped:", e);
+    }
+
+    // Dispatch WhatsApp template
     const waRes = await fetch('https://www.biillojewel.co.in/api/whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,10 +128,10 @@ export const sendOtpFn = createServerFn({ method: 'POST' })
         action: 'message.sendDirect',
         payload: {
           user_id: formattedPhone,
-          template_name: 'otp_verification', // Replace with your exact Convo360 OTP template name
+          template_name: 'otp_verification',
           lang: 'en',
           namespace: 'bfbb14c4_778e_453b_97c2_92f60bb9e978',
-          parameters: [otp],        // ✨ Fills the {{1}} in the text body
+          parameters: [otp],
           button_parameters: [otp]
         }
       })
@@ -81,14 +139,14 @@ export const sendOtpFn = createServerFn({ method: 'POST' })
 
     if (!waRes.ok) {
       const errData = await waRes.json().catch(() => ({}));
-      throw new Error(errData.message || "Failed to trigger WhatsApp message via ERP.");
+      throw new Error(errData.message || "Failed to deliver WhatsApp verification code.");
     }
 
-    return { success: true, message: "OTP sent successfully." };
+    return { success: true, message: "Verification code sent to your WhatsApp." };
   });
 
 // ==========================================
-// 2. VERIFY OTP FUNCTION (With Brute-Force Defense)
+// 2. SECURED VERIFY OTP (Issues Signed Session Cookie)
 // ==========================================
 export const verifyOtpFn = createServerFn({ method: 'POST' })
   .validator(
@@ -100,31 +158,16 @@ export const verifyOtpFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { phone, otp } = data;
 
-    // --------------------------------------------------
-    // 1. Normalize phone for multi-format checking
-    // --------------------------------------------------
-    const rawPhone = phone.replace(/\D/g, '');
-    const basePhone = (rawPhone.startsWith('91') && rawPhone.length === 12) 
-      ? rawPhone.substring(2) 
-      : rawPhone;
-
+    const rawDigits = phone.replace(/\D/g, '');
+    const basePhone = (rawDigits.startsWith('91') && rawDigits.length === 12) 
+      ? rawDigits.substring(2) 
+      : rawDigits;
     const phoneWith91 = `91${basePhone}`;
     const phoneWithout91 = basePhone;
 
-    if (phoneWith91.length !== 12) {
-      throw new Error("Invalid phone number format.");
-    }
-
-    // Pavitram company ID must be stored server-side in env
     const companyId = process.env.PAVITRAM_COMPANY_ID;
+    if (!companyId) throw new Error("PAVITRAM_COMPANY_ID is not configured.");
 
-    if (!companyId) {
-      throw new Error("PAVITRAM_COMPANY_ID is not configured.");
-    }
-
-    // --------------------------------------------------
-    // 2. Fetch active OTP (Using the standard 91 format)
-    // --------------------------------------------------
     const { data: record, error: otpFetchError } = await supabaseAdmin
       .from('otp_verifications')
       .select('*')
@@ -134,230 +177,71 @@ export const verifyOtpFn = createServerFn({ method: 'POST' })
       .limit(1)
       .maybeSingle();
 
-    if (otpFetchError) {
-      console.error("OTP FETCH ERROR:", otpFetchError);
-      throw new Error("Unable to verify OTP.");
-    }
+    if (otpFetchError || !record) throw new Error("No active OTP request found.");
+    if (new Date() > new Date(record.expires_at)) throw new Error("OTP has expired. Request a new one.");
+    if (record.attempts >= 5) throw new Error("Too many incorrect attempts. Request a new code.");
 
-    if (!record) {
-      throw new Error("No active OTP request found.");
-    }
-
-    // --------------------------------------------------
-    // 3. Expiry validation
-    // --------------------------------------------------
-    if (new Date() > new Date(record.expires_at)) {
-      throw new Error("OTP has expired. Please request a new one.");
-    }
-
-    // --------------------------------------------------
-    // 4. Brute-force protection
-    // --------------------------------------------------
-    if (record.attempts >= 5) {
-      throw new Error(
-        "Too many incorrect attempts. Please request a new code."
-      );
-    }
-
-    // --------------------------------------------------
-    // 5. OTP match
-    // --------------------------------------------------
     if (record.otp_code !== otp.trim()) {
       await supabaseAdmin
         .from('otp_verifications')
-        .update({
-          attempts: record.attempts + 1,
-        })
+        .update({ attempts: record.attempts + 1 })
         .eq('id', record.id);
 
-      throw new Error(
-        `Invalid code. ${4 - record.attempts} attempts remaining.`
-      );
+      throw new Error(`Invalid code. ${4 - record.attempts} attempts remaining.`);
     }
 
-    // --------------------------------------------------
-    // 6. Mark OTP verified
-    // --------------------------------------------------
-    const { error: verifyError } = await supabaseAdmin
+    // Mark OTP verified
+    await supabaseAdmin
       .from('otp_verifications')
-      .update({
-        is_verified: true,
-      })
+      .update({ is_verified: true })
       .eq('id', record.id);
 
-    if (verifyError) {
-      console.error("OTP VERIFY UPDATE ERROR:", verifyError);
-      throw new Error("Unable to complete OTP verification.");
-    }
+    // Look up customer (both formats)
+    let { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('id, company_id, full_name, phone, email, birth_date, anniversary_date')
+      .eq('company_id', companyId)
+      .or(`phone.eq.${phoneWith91},phone.eq.${phoneWithout91}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    // --------------------------------------------------
-    // 7. Find existing customer
-    //    IMPORTANT: Checks for BOTH phone formats
-    // --------------------------------------------------
-    let { data: customer, error: customerFetchError } =
-      await supabaseAdmin
-        .from('customers')
-        .select(`
-          id,
-          company_id,
-          full_name,
-          phone,
-          email,
-          birth_date,
-          anniversary_date
-        `)
-        .eq('company_id', companyId)
-        .or(`phone.eq.${phoneWith91},phone.eq.${phoneWithout91}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    if (customerFetchError) {
-      console.error("CUSTOMER LOOKUP ERROR:", customerFetchError);
-      throw new Error("Unable to load customer profile.");
-    }
-
-    // --------------------------------------------------
-    // 8. Create new customer if not found
-    // --------------------------------------------------
     if (!customer) {
-      const { data: newCustomer, error: createCustomerError } =
-        await supabaseAdmin
-          .from('customers')
-          .insert({
-            company_id: companyId,
-            phone: phoneWith91, // Standardize on 91 format for new users
-            full_name: '', // Empty name triggers the onboarding screen automatically
-            customer_status: 'Lead',
-          })
-          .select(`
-            id,
-            company_id,
-            full_name,
-            phone,
-            email,
-            birth_date,
-            anniversary_date
-          `)
-          .single();
+      const { data: newCustomer, error: createError } = await supabaseAdmin
+        .from('customers')
+        .insert({
+          company_id: companyId,
+          phone: phoneWith91,
+          full_name: '',
+          customer_status: 'Lead',
+        })
+        .select('id, company_id, full_name, phone, email, birth_date, anniversary_date')
+        .single();
 
-      if (createCustomerError) {
-        // In case two requests try to create the same customer simultaneously
-        if (createCustomerError.code === '23505') {
-          const retry = await supabaseAdmin
-            .from('customers')
-            .select(`
-              id,
-              company_id,
-              full_name,
-              phone,
-              email,
-              birth_date,
-              anniversary_date
-            `)
-            .eq('company_id', companyId)
-            .or(`phone.eq.${phoneWith91},phone.eq.${phoneWithout91}`)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (retry.error || !retry.data) {
-            console.error("CUSTOMER RETRY LOOKUP ERROR:", retry.error);
-            throw new Error("Failed to create customer profile.");
-          }
-
-          customer = retry.data;
-        } else {
-          console.error("CUSTOMER CREATE ERROR:", {
-            code: createCustomerError.code,
-            message: createCustomerError.message,
-            details: createCustomerError.details,
-            hint: createCustomerError.hint,
-          });
-
-          throw new Error(
-            createCustomerError.message ||
-            "Failed to create customer profile."
-          );
-        }
-      } else {
-        customer = newCustomer;
-      }
+      if (createError) throw new Error("Failed to create customer profile.");
+      customer = newCustomer;
     }
 
-    // --------------------------------------------------
-    // 9. Ensure ecommerce profile exists
-    // --------------------------------------------------
-    const { data: ecommerceProfile, error: ecommerceFetchError } =
-      await supabaseAdmin
-        .from('ecommerce_customer_profiles')
-        .select(`
-          id,
-          customer_id,
-          first_name,
-          last_name,
-          street_address,
-          apartment,
-          city,
-          state,
-          pincode
-        `)
-        .eq('customer_id', customer.id)
-        .maybeSingle();
+    // Ensure ecommerce profile exists
+    let { data: profile } = await supabaseAdmin
+      .from('ecommerce_customer_profiles')
+      .select('*')
+      .eq('customer_id', customer.id)
+      .maybeSingle();
 
-    if (ecommerceFetchError) {
-      console.error(
-        "ECOMMERCE PROFILE LOOKUP ERROR:",
-        ecommerceFetchError
-      );
-      throw new Error("Unable to load ecommerce profile.");
-    }
-
-    let profile = ecommerceProfile;
-
-    // Create ecommerce-only profile for first-time website users
     if (!profile) {
-      const { data: newProfile, error: profileCreateError } =
-        await supabaseAdmin
-          .from('ecommerce_customer_profiles')
-          .insert({
-            customer_id: customer.id,
-            first_name: '',
-            last_name: '',
-          })
-          .select(`
-            id,
-            customer_id,
-            first_name,
-            last_name,
-            street_address,
-            apartment,
-            city,
-            state,
-            pincode
-          `)
-          .single();
-
-      if (profileCreateError) {
-        console.error("ECOMMERCE PROFILE CREATE ERROR:", {
-          code: profileCreateError.code,
-          message: profileCreateError.message,
-          details: profileCreateError.details,
-          hint: profileCreateError.hint,
-        });
-
-        throw new Error(
-          profileCreateError.message ||
-          "Failed to create ecommerce profile."
-        );
-      }
-
-      profile = newProfile;
+      const { data: newProf } = await supabaseAdmin
+        .from('ecommerce_customer_profiles')
+        .insert({ customer_id: customer.id, first_name: '', last_name: '' })
+        .select()
+        .single();
+      profile = newProf;
     }
 
-    // --------------------------------------------------
-    // 10. Return everything needed by frontend
-    // --------------------------------------------------
+    // 🔒 ISSUE SECURE SESSION COOKIE (Kills IDOR completely)
+    const sessionToken = await createSessionToken(customer.id, customer.phone);
+    setAuthCookie(sessionToken);
+
     return {
       success: true,
       customer: {
@@ -366,3 +250,11 @@ export const verifyOtpFn = createServerFn({ method: 'POST' })
       },
     };
   });
+
+// ==========================================
+// 3. LOGOUT (Invalidates Cookie)
+// ==========================================
+export const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
+  clearAuthCookie();
+  return { success: true };
+});

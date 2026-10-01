@@ -16,6 +16,7 @@ import { Route as StoresRouteImport } from './routes/stores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HarvestingRouteImport } from './routes/harvesting'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AddressesRouteImport } from './routes/addresses'
@@ -66,6 +67,11 @@ const OrdersRoute = OrdersRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HarvestingRoute = HarvestingRouteImport.update({
+  id: '/harvesting',
+  path: '/harvesting',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/harvesting': typeof HarvestingRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByTo {
   '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/harvesting': typeof HarvestingRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -210,6 +218,7 @@ export interface FileRoutesById {
   '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/harvesting': typeof HarvestingRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/addresses'
     | '/cart'
     | '/checkout'
+    | '/harvesting'
     | '/login'
     | '/orders'
     | '/sitemap.xml'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/addresses'
     | '/cart'
     | '/checkout'
+    | '/harvesting'
     | '/login'
     | '/orders'
     | '/sitemap.xml'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/addresses'
     | '/cart'
     | '/checkout'
+    | '/harvesting'
     | '/login'
     | '/orders'
     | '/sitemap.xml'
@@ -313,6 +325,7 @@ export interface RootRouteChildren {
   AddressesRoute: typeof AddressesRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
+  HarvestingRoute: typeof HarvestingRoute
   LoginRoute: typeof LoginRoute
   OrdersRoute: typeof OrdersRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -378,6 +391,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/harvesting': {
+      id: '/harvesting'
+      path: '/harvesting'
+      fullPath: '/harvesting'
+      preLoaderRoute: typeof HarvestingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -505,6 +525,7 @@ const rootRouteChildren: RootRouteChildren = {
   AddressesRoute: AddressesRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
+  HarvestingRoute: HarvestingRoute,
   LoginRoute: LoginRoute,
   OrdersRoute: OrdersRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

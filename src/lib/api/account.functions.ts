@@ -1,178 +1,153 @@
-import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
-
-// ==========================================================
-// SUPABASE ADMIN CLIENT
-// ==========================================================
+import { createServerFn } from '@tanstack/react-start';
+import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { getAuthenticatedCustomer, clearAuthCookie } from '../session.server';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ==========================================================
-// 1. GET ACCOUNT PROFILE & DASHBOARD DATA
-// ==========================================================
+// ==========================================
+// 1. GET ACCOUNT PROFILE (IDOR-Proof)
+// ==========================================
+export const getAccountProfileFn = createServerFn({ method: 'POST' })
+  .handler(async () => {
+    // 🔒 SECURED: Extracts verified customerId from HttpOnly cookie
+    const { customerId } = await getAuthenticatedCustomer();
 
-export const getAccountProfileFn = createServerFn({
-  method: "POST",
-})
-  .validator(
-    z.object({
-      customerId: z.string().uuid(),
-    })
-  )
-  .handler(async ({ data }) => {
-    const { customerId } = data;
+    const [customerRes, profileRes, ordersRes] = await Promise.all([
+      supabaseAdmin
+        .from('customers')
+        .select('id, full_name, phone, email, birth_date, anniversary_date')
+        .eq('id', customerId)
+        .single(),
 
-    // ------------------------------------------------------
-    // Fetch main customer record
-    // ------------------------------------------------------
-    const { data: customer, error: customerError } = await supabaseAdmin
-      .from("customers")
-      .select(`id, company_id, full_name, phone, email, birth_date, anniversary_date`)
-      .eq("id", customerId)
-      .single();
+      supabaseAdmin
+        .from('ecommerce_customer_profiles')
+        .select('*')
+        .eq('customer_id', customerId)
+        .maybeSingle(),
 
-    if (customerError || !customer) {
-      throw new Error(customerError?.message || "Unable to load customer account.");
+      supabaseAdmin
+        .from('ecommerce_orders')
+        .select(`
+          id,
+          order_number,
+          status,
+          final_total,
+          created_at,
+          expected_delivery_date,
+          ecommerce_order_items (
+            id,
+            quantity,
+            total_price,
+            product_id
+          )
+        `)
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+    ]);
+
+    if (customerRes.error || !customerRes.data) {
+      throw new Error("Unable to retrieve account details.");
     }
 
-    // ------------------------------------------------------
-    // Fetch ecommerce-specific profile (Addresses)
-    // ------------------------------------------------------
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("ecommerce_customer_profiles")
-      .select(`id, customer_id, first_name, last_name, street_address, apartment, city, state, pincode`)
-      .eq("customer_id", customerId)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("ECOMMERCE PROFILE FETCH ERROR:", profileError);
-    }
-
-    // ------------------------------------------------------
-    // Fetch Order History (Joined with Order Items)
-    // ------------------------------------------------------
-    const { data: orders, error: ordersError } = await supabaseAdmin
-      .from("ecommerce_orders")
-      .select(`
-        *,
-        ecommerce_order_items (*)
-      `)
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
-
-    if (ordersError) {
-      console.error("ORDERS FETCH ERROR:", ordersError);
-    }
-
-    // ------------------------------------------------------
-    // Return all dashboard data
-    // ------------------------------------------------------
     return {
-      success: true,
-      customer,
-      profile: profile || null,
-      orders: orders || [],
+      customer: customerRes.data,
+      profile: profileRes.data || null,
+      orders: ordersRes.data || []
     };
   });
 
-// ==========================================================
-// 2. UPDATE ACCOUNT PROFILE
-// ==========================================================
-
-export const updateAccountProfileFn = createServerFn({
-  method: "POST",
-})
-  .validator(
-    z.object({
-      customerId: z.string().uuid(),
-      firstName: z.string().trim().min(1, "First name is required.").max(100),
-      lastName: z.string().trim().min(1, "Last name is required.").max(100),
-      email: z.string().trim().email("Invalid email address.").or(z.literal("")),
-      dob: z.string().optional(),
-      anniversary: z.string().optional(),
-      streetAddress: z.string().trim().max(300).optional(),
-      apartment: z.string().trim().max(150).optional(),
-      city: z.string().trim().max(100).optional(),
-      state: z.string().trim().max(100).optional(),
-      pincode: z.string().trim().regex(/^\d{6}$/, "Invalid PIN code.").or(z.literal("")),
-    })
-  )
+// ==========================================
+// 2. UPDATE ACCOUNT PROFILE (IDOR-Proof)
+// ==========================================
+export const updateAccountProfileFn = createServerFn({ method: 'POST' })
+  .validator(z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Valid email is required"),
+    dob: z.string().optional(),
+    anniversary: z.string().optional(),
+    streetAddress: z.string().optional(),
+    apartment: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    pincode: z.string().optional()
+  }))
   .handler(async ({ data }) => {
-    const { customerId, firstName, lastName, email, dob, anniversary, streetAddress, apartment, city, state, pincode } = data;
-    const fullName = `${firstName} ${lastName}`.trim();
+    // 🔒 SECURED: Customer can only mutate their OWN profile
+    const { customerId } = await getAuthenticatedCustomer();
 
-    // 1. Update COMMON customers table
-    const { data: updatedCustomer, error: customerError } = await supabaseAdmin
-      .from("customers")
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
+
+    // 1. Update master customer table
+    const { error: customerError } = await supabaseAdmin
+      .from('customers')
       .update({
         full_name: fullName,
-        email: email || null,
-        birth_date: dob || null,
-        anniversary_date: anniversary || null,
-        updated_at: new Date().toISOString(),
+        email: data.email.trim(),
+        birth_date: data.dob || null,
+        anniversary_date: data.anniversary || null
       })
-      .eq("id", customerId)
-      .select(`id, company_id, full_name, phone, email, birth_date, anniversary_date`)
-      .single();
+      .eq('id', customerId);
 
-    if (customerError || !updatedCustomer) throw new Error("Failed to update customer information.");
-
-    // 2. Update ecommerce-specific table
-    const { data: updatedProfile, error: profileError } = await supabaseAdmin
-      .from("ecommerce_customer_profiles")
-      .upsert({
-        customer_id: customerId,
-        first_name: firstName,
-        last_name: lastName,
-        street_address: streetAddress || null,
-        apartment: apartment || null,
-        city: city || null,
-        state: state || null,
-        pincode: pincode || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "customer_id" })
-      .select(`id, customer_id, first_name, last_name, street_address, apartment, city, state, pincode`)
-      .single();
-
-    if (profileError || !updatedProfile) throw new Error("Failed to update ecommerce profile.");
-
-    return {
-      success: true,
-      customer: updatedCustomer,
-      profile: updatedProfile,
-    };
-  });
-
-// ==========================================================
-// 3. DPDP COMPLIANCE: DELETE ACCOUNT
-// ==========================================================
-
-export const deleteAccountFn = createServerFn({
-  method: "POST",
-})
-  .validator(
-    z.object({
-      customerId: z.string().uuid(),
-    })
-  )
-  .handler(async ({ data }) => {
-    const { customerId } = data;
-
-    // Deleting the main customer record. 
-    // Foreign keys with 'on delete CASCADE' (like ecommerce_customer_profiles) will automatically drop associated data.
-    const { error } = await supabaseAdmin
-      .from("customers")
-      .delete()
-      .eq("id", customerId);
-
-    if (error) {
-      console.error("DPDP ACCOUNT DELETION ERROR:", error);
-      throw new Error("Failed to delete account data.");
+    if (customerError) {
+      console.error("Update Customer Error:", customerError);
+      throw new Error("Failed to update personal details.");
     }
 
-    return { success: true };
+    // 2. Upsert primary address in ecommerce profile
+    const { data: updatedProfile, error: profileError } = await supabaseAdmin
+      .from('ecommerce_customer_profiles')
+      .upsert({
+        customer_id: customerId,
+        first_name: data.firstName.trim(),
+        last_name: data.lastName.trim(),
+        street_address: data.streetAddress || null,
+        apartment: data.apartment || null,
+        city: data.city || null,
+        state: data.state || null,
+        pincode: data.pincode || null
+      }, { onConflict: 'customer_id' })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error("Update Profile Error:", profileError);
+      throw new Error("Failed to save address details.");
+    }
+
+    return { success: true, profile: updatedProfile };
+  });
+
+// ==========================================
+// 3. DELETE ACCOUNT (DPDP Act Compliance - IDOR-Proof)
+// ==========================================
+export const deleteAccountFn = createServerFn({ method: 'POST' })
+  .handler(async () => {
+    // 🔒 SECURED: Prevents an attacker from deleting other users' accounts
+    const { customerId } = await getAuthenticatedCustomer();
+
+    // Anonymize/erase ecommerce data in compliance with DPDP 2023
+    await supabaseAdmin
+      .from('ecommerce_customer_profiles')
+      .delete()
+      .eq('customer_id', customerId);
+
+    await supabaseAdmin
+      .from('customers')
+      .update({
+        full_name: 'Deleted User',
+        email: null,
+        phone: `DELETED_${Date.now()}`,
+        customer_status: 'Churned'
+      })
+      .eq('id', customerId);
+
+    // Invalidate session cookie immediately
+    clearAuthCookie();
+
+    return { success: true, message: "Account data permanently erased." };
   });
