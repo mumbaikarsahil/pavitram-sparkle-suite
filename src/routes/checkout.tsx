@@ -236,7 +236,7 @@ function CheckoutPage() {
       if (!orderData.id) throw new Error("Failed to initialize order on server.");
 
       const options = {
-        key: "rzp_test_TWOt1jOLaW5e92", 
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "Pavitram Diamond Jewellery",
