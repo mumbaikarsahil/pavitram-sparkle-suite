@@ -405,7 +405,7 @@ export function Header() {
       <div className="absolute top-full right-0 mt-4 w-40 bg-white border border-[#E9D8C3] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all rounded-sm z-50">
         <div className="flex flex-col py-2">
           <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Profile</Link>
-          <Link to="/orders" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Orders</Link>
+          <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Orders</Link>
           <button onClick={handleLogout} className="text-left px-4 py-2 text-xs font-sans text-rose-600 hover:bg-rose-50 w-full">Sign Out</button>
         </div>
       </div>

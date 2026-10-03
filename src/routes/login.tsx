@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { 
   ArrowLeft, Loader2, ShieldCheck, 
@@ -22,8 +22,29 @@ function AuthPage() {
 
   // Form states
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Refs for auto-focusing
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Instantly redirect to Account if already logged in
+  useEffect(() => {
+    const user = localStorage.getItem("pavitram_user");
+    if (user) {
+      navigate({ to: "/Account", replace: true });
+    }
+  }, [navigate]);
+
+  // Focus management
+  useEffect(() => {
+    if (step === 'phone') {
+      phoneInputRef.current?.focus();
+    } else if (step === 'otp') {
+      otpRefs.current[0]?.focus();
+    }
+  }, [step]);
 
   // OTP Countdown Timer
   useEffect(() => {
@@ -46,6 +67,7 @@ function AuthPage() {
       await sendOtpFn({ data: { phone } });
       setStep('otp');
       setTimer(60);
+      setOtp(Array(6).fill("")); // Reset OTP boxes
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to send OTP.");
     } finally {
@@ -57,66 +79,117 @@ function AuthPage() {
     e.preventDefault();
     setErrorMsg("");
     
-    if (otp.length !== 6) return setErrorMsg("Enter the 6-digit code.");
+    const finalOtp = otp.join("");
+    if (finalOtp.length !== 6) return setErrorMsg("Enter the complete 6-digit code.");
 
     setIsLoading(true);
     try {
-      const res = await verifyOtpFn({ data: { phone, otp } });
+      const res = await verifyOtpFn({ data: { phone, otp: finalOtp } });
 
-      // 1. Save to localStorage
       localStorage.setItem("pavitram_user", JSON.stringify(res.customer));
-      
-      // 2. DISPATCH EVENT HERE: Instantly updates the Header
       window.dispatchEvent(new Event("authStateChange"));
-
       navigate({ to: "/Account" });
       
     } catch (err: any) {
-      setErrorMsg(err.message || "Verification failed.");
+      setErrorMsg(err.message || "Verification failed. Please try again.");
+      // Clear OTP on failure and re-focus first box
+      setOtp(Array(6).fill(""));
+      otpRefs.current[0]?.focus();
     } finally {
       setIsLoading(false);
     }
   };
 
+  // --- ZOMATO/SWIGGY STYLE OTP BOX LOGIC ---
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return; // Only allow numbers
+
+    const newOtp = [...otp];
+    // Take only the last character if they somehow type multiple
+    newOtp[index] = value.slice(-1);
+    setOtp(newOtp);
+
+    // Auto-advance to next box
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!otp[index] && index > 0) {
+        // If box is empty and they hit backspace, move to previous box
+        otpRefs.current[index - 1]?.focus();
+      } else {
+        // Clear current box
+        const newOtp = [...otp];
+        newOtp[index] = "";
+        setOtp(newOtp);
+      }
+    } else if (e.key === 'Enter' && otp.join("").length === 6) {
+      handleVerifyOtp(e as any);
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    
+    if (pastedData) {
+      const newOtp = [...otp];
+      pastedData.split("").forEach((char, i) => {
+        newOtp[i] = char;
+      });
+      setOtp(newOtp);
+      
+      // Auto focus the next logical box, or the last box if full
+      const focusIndex = Math.min(pastedData.length, 5);
+      otpRefs.current[focusIndex]?.focus();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#F7F1E8] flex flex-col md:items-center md:justify-center font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-[#F7F1E8] flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden">
       
       {/* Subtle Floral Background overlay */}
       <img 
-        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
         alt="Decorative Floral" 
         className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
       />
 
-      <div className="w-full flex flex-col justify-center max-w-[440px] bg-white md:shadow-[0_10px_40px_rgba(74,31,88,0.05)] md:border md:border-[#E9D8C3] md:rounded-sm overflow-hidden relative min-h-[calc(100vh-56px)] md:min-h-fit md:h-auto z-10 my-0 md:my-8">
+      {/* Universally Centered Card Layout */}
+      <div className="w-full max-w-[420px] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E9D8C3] rounded-2xl overflow-hidden relative z-10">
         
         {/* Top Gold Accent Bar */}
-        <div className="h-1.5 w-full bg-[#C9A15B] hidden md:block" />
+        <div className="h-1.5 w-full bg-[#C9A15B]" />
 
-        <div className="p-8 md:p-10 flex flex-col">
+        <div className="p-6 sm:p-8 flex flex-col">
           
           {step === 'phone' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col">
               
-              <div className="text-center mb-10">
-                <Logo className="h-8 w-auto mx-auto mb-6 hidden md:block" />
-                <h1 className="text-2xl md:text-3xl font-medium text-[#4A1F58] tracking-wide font-serif mb-2">
+              <div className="mb-8 text-center sm:text-left">
+                <Logo className="h-8 w-auto mb-6 mx-auto sm:mx-0" />
+                <h1 className="text-2xl sm:text-3xl font-semibold text-zinc-900 tracking-tight mb-2">
                   Welcome to Pavitram
                 </h1>
-                <p className="text-[11px] md:text-xs font-sans text-zinc-500 uppercase tracking-widest">
-                  Sign in to your account
+                <p className="text-sm font-sans text-zinc-500">
+                  Enter your WhatsApp number to continue
                 </p>
               </div>
 
               <form onSubmit={handleSendOtp} className="flex flex-col">
-                <div className="flex gap-2">
-                  <span className="flex items-center justify-center px-4 border border-[#E9D8C3] rounded-sm bg-[#F7F1E8]/50 text-sm font-bold text-[#4A1F58]">
+                {/* Modern App-style Phone Input */}
+                <div className="flex items-center h-14 bg-white border border-zinc-300 rounded-xl px-4 focus-within:border-[#4A1F58] focus-within:ring-1 focus-within:ring-[#4A1F58] transition-all shadow-sm">
+                  <span className="text-base font-bold text-zinc-800 border-r border-zinc-200 pr-3 mr-3">
                     +91
                   </span>
                   <input 
+                    ref={phoneInputRef}
                     type="tel" 
-                    placeholder="Enter your phone number" 
-                    className="w-full h-12 bg-white border border-[#E9D8C3] rounded-sm px-4 text-sm font-sans focus:border-[#C9A15B] outline-none transition-colors"
+                    placeholder="WhatsApp Number" 
+                    className="w-full h-full bg-transparent text-lg font-semibold text-zinc-900 placeholder:text-zinc-400 placeholder:font-normal outline-none"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     maxLength={10}
@@ -124,7 +197,7 @@ function AuthPage() {
                   />
                 </div>
                 
-                {errorMsg && <p className="text-[11px] text-rose-500 mt-3 font-medium">{errorMsg}</p>}
+                {errorMsg && <p className="text-xs text-rose-500 mt-2.5 font-medium">{errorMsg}</p>}
 
                 <div className="mt-8">
                   <label className="flex items-start gap-3 cursor-pointer group mb-6">
@@ -134,21 +207,21 @@ function AuthPage() {
                       checked={termsAccepted}
                       onChange={(e) => setTermsAccepted(e.target.checked)}
                     />
-                    <div className={`mt-0.5 w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${termsAccepted ? 'bg-[#4A1F58] border-[#4A1F58] text-white' : 'border-[#E9D8C3] bg-white group-hover:border-[#C9A15B]'}`}>
-                      {termsAccepted && <CheckCircle2 className="w-3 h-3" />}
+                    <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${termsAccepted ? 'bg-[#4A1F58] border-[#4A1F58] text-white' : 'border-zinc-300 bg-white group-hover:border-[#C9A15B]'}`}>
+                      {termsAccepted && <CheckCircle2 className="w-3.5 h-3.5" />}
                     </div>
-                    <span className="text-[10px] font-sans text-zinc-500 leading-relaxed select-none">
-                      I agree to Pavitram's <Link to="/" className="text-[#4A1F58] hover:text-[#C9A15B] font-bold transition-colors">Terms of Service</Link> and <Link to="/" className="text-[#4A1F58] hover:text-[#C9A15B] font-bold transition-colors">Privacy Policy</Link>.
+                    <span className="text-xs font-sans text-zinc-500 leading-relaxed select-none">
+                      I agree to Pavitram's <Link to="/policy/$slug" params={{slug: 'terms'}} className="text-zinc-900 hover:text-[#C9A15B] font-bold transition-colors">Terms of Service</Link> and <Link to="/policy/$slug" params={{slug: 'privacy'}} className="text-zinc-900 hover:text-[#C9A15B] font-bold transition-colors">Privacy Policy</Link>.
                     </span>
                   </label>
 
                   <button 
                     type="submit"
                     disabled={isLoading || !termsAccepted || phone.length < 10}
-                    className="w-full h-12 bg-[#4A1F58] hover:bg-[#302832] text-white font-sans font-bold tracking-[0.2em] uppercase text-[10px] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full h-14 bg-[#4A1F58] hover:bg-[#302832] text-white font-sans font-bold tracking-widest uppercase text-xs rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                      <>Get WhatsApp Code <MessageCircle className="w-3.5 h-3.5" /></>
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                      <>Get WhatsApp Code <MessageCircle className="w-4 h-4" /></>
                     )}
                   </button>
                 </div>
@@ -163,46 +236,53 @@ function AuthPage() {
               <button 
                 type="button"
                 onClick={() => setStep('phone')}
-                className="self-start mb-6 text-zinc-400 hover:text-[#C9A15B] transition-colors"
+                className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center mb-6 text-zinc-600 hover:bg-zinc-200 transition-colors active:scale-95"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-full bg-[#E5F5E9] border border-[#CDE7D4] flex items-center justify-center mx-auto mb-6 text-[#25D366]">
-                  <MessageCircle className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-serif font-medium text-[#4A1F58] mb-2">Check WhatsApp</h2>
-                <p className="text-xs font-sans text-zinc-500">
-                  We sent a 6-digit code to <strong className="text-[#302832] font-bold">+91 {phone}</strong>
+              <div className="mb-8">
+                <h2 className="text-2xl md:text-3xl font-semibold text-zinc-900 mb-2">Verify Details</h2>
+                <p className="text-sm font-sans text-zinc-500">
+                  Code sent securely to <strong className="text-zinc-900">+91 {phone}</strong>
                 </p>
               </div>
 
               <form onSubmit={handleVerifyOtp} className="flex flex-col">
-                <input 
-                  type="text" 
-                  maxLength={6}
-                  placeholder="000000" 
-                  className="w-full h-14 bg-white border border-[#E9D8C3] rounded-sm px-4 text-center text-2xl font-mono font-bold tracking-[0.5em] focus:border-[#C9A15B] outline-none transition-colors"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  required
-                />
                 
-                {errorMsg && <p className="text-[11px] text-rose-500 mt-3 font-medium text-center">{errorMsg}</p>}
+                {/* Modern App-style OTP Boxes */}
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={handleOtpPaste}
+                      className="w-full aspect-[4/5] bg-white border border-zinc-300 rounded-xl text-center text-2xl font-bold text-zinc-900 focus:border-[#4A1F58] focus:ring-2 focus:ring-[#4A1F58]/20 outline-none transition-all shadow-sm"
+                    />
+                  ))}
+                </div>
+                
+                {errorMsg && <p className="text-xs text-rose-500 mt-4 font-medium text-center">{errorMsg}</p>}
 
-                <div className="mt-8 text-center">
+                <div className="mt-8 flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Didn't receive code?</span>
                   {timer > 0 ? (
-                    <span className="text-[10px] font-sans text-zinc-400 uppercase tracking-widest">
-                      Resend code in {timer}s
+                    <span className="text-sm font-semibold text-zinc-400">
+                      Resend in {timer}s
                     </span>
                   ) : (
                     <button 
                       type="button"
                       onClick={() => handleSendOtp()} 
-                      className="text-[10px] font-sans font-bold text-[#4A1F58] hover:text-[#C9A15B] uppercase tracking-[0.15em] transition-colors"
+                      className="text-sm font-bold text-[#4A1F58] hover:text-[#C9A15B] transition-colors"
                     >
-                      Resend WhatsApp Code
+                      Resend Now
                     </button>
                   )}
                 </div>
@@ -210,20 +290,15 @@ function AuthPage() {
                 <div className="mt-8">
                   <button 
                     type="submit"
-                    disabled={isLoading || otp.length !== 6}
-                    className="w-full h-12 bg-[#4A1F58] hover:bg-[#302832] text-white font-sans font-bold tracking-[0.2em] uppercase text-[10px] rounded-sm transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                    disabled={isLoading || otp.join("").length !== 6}
+                    className="w-full h-14 bg-[#4A1F58] hover:bg-[#302832] text-white font-sans font-bold tracking-widest uppercase text-xs rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Secure Login"}
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify & Secure Login"}
                   </button>
                 </div>
               </form>
             </div>
           )}
-
-          {/* Security Badge */}
-          <div className="flex items-center justify-center gap-2 mt-8 text-[9px] font-sans text-zinc-400 font-bold uppercase tracking-[0.2em]">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#C9A15B]" /> Secure Login
-          </div>
 
         </div>
       </div>

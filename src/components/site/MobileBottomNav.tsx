@@ -8,7 +8,7 @@ const items = [
   { to: "/Shop", label: "Shop", icon: LayoutGrid },
   { to: "/Search", label: "Search", icon: Search },
   { to: "/wishlist", label: "Wishlist", icon: Heart },
-  { to: "/login", label: "Account", icon: User },
+  { to: "/Account", label: "Account", icon: User },
 ] as const;
 
 export function MobileBottomNav() {

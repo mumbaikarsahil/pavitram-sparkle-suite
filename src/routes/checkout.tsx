@@ -11,7 +11,7 @@ import { WhatsAppAuthModal } from "@/components/site/WhatsAppAuthModal";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Lock, CreditCard, Loader2, AlertTriangle, 
-  RefreshCw, X, Ticket, MapPin, CheckCircle2, UserCircle2, Mail, Phone, Plus
+  RefreshCw, X, MapPin, CheckCircle2, UserCircle2, Plus
 } from "lucide-react";
 
 export const Route = createFileRoute('/checkout')({
@@ -64,9 +64,6 @@ function CheckoutPage() {
     addressLine1: "", addressLine2: "", city: "", state: "", pincode: "",
   });
 
-  // ==========================================
-  // 1. FETCH SECURE PROFILE FROM SERVER
-  // ==========================================
   const fetchSecureProfile = async () => {
     try {
       const data = await getAccountProfileFn();
@@ -75,7 +72,7 @@ function CheckoutPage() {
         
         const addressExists = !!(data.profile?.street_address && data.profile?.city && data.profile?.pincode);
         setHasDbAddress(addressExists);
-        setIsEditingAddress(false); // Always keep accordion closed initially
+        setIsEditingAddress(false);
         
         setFormData({
           firstName: data.profile?.first_name || data.customer.full_name?.split(' ')[0] || "",
@@ -164,9 +161,6 @@ function CheckoutPage() {
     }
   };
 
-  // ==========================================
-  // 2. STRICT BILLING MATH ENGINE
-  // ==========================================
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   
   let rawDiscount = 0, handlingFee = 0, appliedDiscount = 0, taxableValue = subtotal;
@@ -197,10 +191,26 @@ function CheckoutPage() {
   const total = Math.round(exactTotal);
 
   const isCheckoutReady = !!(currentUser && hasDbAddress && dpdpConsent && !isEditingAddress);
+  const missingConsentOnly = !!(currentUser && hasDbAddress && !isEditingAddress && !dpdpConsent);
 
-  // ==========================================
-  // 3. SECURE CHECKOUT EXECUTION
-  // ==========================================
+  // ✨ NEW: Dynamic Button State Logic to tell the user EXACTLY what is missing
+  const getButtonState = () => {
+    if (isProcessing) return { text: "Securing Payment...", disabled: true, style: "bg-zinc-200 text-zinc-500" };
+    if (!currentUser) return { text: "Login to Continue", disabled: true, style: "bg-zinc-200 text-zinc-500" };
+    if (!hasDbAddress || isEditingAddress) return { text: "Add Delivery Address", disabled: true, style: "bg-zinc-200 text-zinc-500" };
+    if (!dpdpConsent) return { 
+      text: "Tick Consent Box to Pay", 
+      disabled: true, 
+      style: "bg-purple-200 text-purple-700 border border-purple-200 shadow-sm" 
+    };
+    return { 
+      text: "Pay Now", 
+      disabled: false, 
+      style: "" // Uses the default active styles defined inline below
+    };
+  };
+  const btnState = getButtonState();
+
   const handlePayment = async () => {
     if (cartItems.length === 0) return toast.error("Your cart is empty!");
     if (!isCheckoutReady) return toast.error("Please complete your delivery details and accept the privacy consent.");
@@ -369,19 +379,34 @@ function CheckoutPage() {
         </div>
       )}
 
-      {/* ✨ FIX: Increased pb-[140px] so you can scroll to the bottom of the order summary without it being blocked */}
-      <div className={`min-h-screen bg-[#F1F2F4] font-sans pb-[140px] md:pb-24 ${(isProcessing || isDataLoading) ? 'pointer-events-none' : ''}`}>
+      <div className={`min-h-screen bg-[#F1F2F4] font-sans pb-[160px] md:pb-24 ${(isProcessing || isDataLoading) ? 'pointer-events-none' : ''}`}>
         
         {/* HEADER */}
         <header className="bg-white border-b border-zinc-200 sticky top-0 z-40 shadow-sm">
           <div className="max-w-[1200px] mx-auto px-4 h-16 flex items-center justify-between">
-            <button onClick={() => window.history.back()} className="flex items-center gap-2 text-sm font-bold text-zinc-600 hover:text-zinc-900">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <div className="shrink-0 absolute left-1/2 -translate-x-1/2 cursor-pointer" onClick={() => navigate({ to: "/" })}>
-              <Logo className="h-10 w-auto" />
+            <div className="shrink-0 cursor-pointer" onClick={() => navigate({ to: "/" })}>
+              <Logo className="h-8 md:h-10 w-auto" />
             </div>
-            <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-100">
+
+            <div className="flex items-center gap-1.5 sm:gap-3 text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.15em] sm:tracking-widest">
+              <span className="text-emerald-600 hidden sm:flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5"/> Bag
+              </span>
+              <span className="w-3 sm:w-6 h-px bg-zinc-300 hidden sm:block" />
+              
+              <span className={hasDbAddress && !isEditingAddress ? "text-emerald-600 flex items-center gap-1" : "text-[#4A0B49]"}>
+                {hasDbAddress && !isEditingAddress ? <CheckCircle2 className="w-3.5 h-3.5"/> : null} 
+                Details
+              </span>
+              
+              <span className="w-3 sm:w-6 h-px bg-zinc-300" />
+              
+              <span className={isCheckoutReady ? "text-[#4A0B49]" : "text-zinc-400"}>
+                Payment
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2 sm:px-3 py-1.5 rounded-md border border-emerald-100">
               <Lock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest">Secure</span>
             </div>
@@ -462,7 +487,6 @@ function CheckoutPage() {
                   {/* ADDRESS ACCORDION LOGIC */}
                   {currentUser && !isEditingAddress ? (
                     hasDbAddress ? (
-                      // HAS ADDRESS & CLOSED -> Show Pill
                       <div className="px-4 sm:px-5 pb-5 pt-1">
                         <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex gap-3">
                           <MapPin className="w-5 h-5 text-zinc-500 shrink-0" />
@@ -476,7 +500,6 @@ function CheckoutPage() {
                         </div>
                       </div>
                     ) : (
-                      // NO ADDRESS & CLOSED -> Show "Add Address" Prompt
                       <div className="p-4 sm:p-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-50/50">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
@@ -630,33 +653,37 @@ function CheckoutPage() {
                     <span className="text-xl font-black text-zinc-900 tracking-tight">₹{total.toLocaleString('en-IN')}</span>
                   </div>
 
-                  {/* DPDP Act Consent */}
-                  <div className={`mb-6 flex items-start gap-3 p-3 rounded-lg border transition-colors ${dpdpConsent ? 'bg-emerald-50/50 border-emerald-100' : 'bg-zinc-50 border-zinc-200'}`}>
+                  {/* ✨ FIX: Visual highlight for DPDP Act Consent when it is the only thing missing */}
+                  <div className={`mb-6 flex items-start gap-3 p-3 rounded-xl border transition-all duration-300 ${
+                    dpdpConsent ? 'bg-emerald-50/50 border-emerald-200' : 
+                    missingConsentOnly ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-500/20 shadow-sm' : 
+                    'bg-zinc-50 border-zinc-200'
+                  }`}>
                     <input 
                       type="checkbox" 
                       id="dpdp-consent"
                       checked={dpdpConsent}
                       onChange={(e) => setDpdpConsent(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#4A0B49] focus:ring-[#4A0B49] cursor-pointer shrink-0"
+                      className={`mt-0.5 w-4 h-4 rounded cursor-pointer shrink-0 transition-colors ${missingConsentOnly && !dpdpConsent ? 'border-amber-400 text-amber-500 focus:ring-amber-500' : 'border-zinc-300 text-[#4A0B49] focus:ring-[#4A0B49]'}`}
                     />
                     <label htmlFor="dpdp-consent" className="text-[11px] text-zinc-600 leading-snug cursor-pointer">
-                      I agree to the <Link to="/policy/$slug" params={{ slug: "terms" }} target="_blank" className="text-[#4A0B49] font-bold hover:underline">Terms</Link> & <Link to="/policy/$slug" params={{ slug: "privacy" }} target="_blank" className="text-[#4A0B49] font-bold hover:underline">Privacy Policy</Link> as per DPDP Act 2023.
+                      I agree to the <Link to="/policy/$slug" params={{ slug: "terms" }} target="_blank" className="text-zinc-900 font-bold hover:text-[#C9A15B] transition-colors">Terms</Link> & <Link to="/policy/$slug" params={{ slug: "privacy" }} target="_blank" className="text-zinc-900 font-bold hover:text-[#C9A15B] transition-colors">Privacy Policy</Link> as per DPDP Act 2023.
                     </label>
                   </div>
                   
-                  {/* Desktop Pay Button */}
+                  {/* ✨ FIX: Dynamic Desktop Pay Button */}
                   <button 
                     type="button"
                     onClick={handlePayment}
-                    disabled={!isCheckoutReady || isProcessing}
-                    className={`hidden sm:flex w-full text-white font-bold text-sm tracking-widest uppercase py-4 rounded-xl shadow-md transition-all items-center justify-center gap-2 ${
-                      isCheckoutReady && !isProcessing 
-                        ? 'bg-[#4A0B49] hover:bg-[#340733] active:scale-[0.98] cursor-pointer opacity-100' 
-                        : 'bg-zinc-300 opacity-70 cursor-not-allowed text-zinc-500'
+                    disabled={btnState.disabled}
+                    className={`hidden sm:flex w-full font-bold text-sm tracking-widest uppercase py-4 rounded-xl transition-all items-center justify-center gap-2 ${
+                      btnState.disabled 
+                        ? btnState.style 
+                        : 'bg-[#4A0B49] hover:bg-[#340733] text-white shadow-md active:scale-[0.98]'
                     }`}
                   >
                     {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-4 h-4" />} 
-                    Pay Now
+                    {btnState.text}
                   </button>
                 </div>
               </div>
@@ -665,24 +692,23 @@ function CheckoutPage() {
         )}
       </div>
 
-      {/* ✨ FIX: Increased z-index to 60 to completely overlay any website bottom navigation bars */}
-      {/* MOBILE STICKY BOTTOM BAR FOR PAYMENT */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 px-4 pt-4 pb-6 md:pb-4 shadow-[0_-10px_20px_rgba(0,0,0,0.08)] z-[60]">
+     {/* ✨ FIX: iOS Glassmorphic Sticky Bottom Bar with Purple Brand Button */}
+     <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/85 backdrop-blur-xl border-t border-zinc-200/50 px-4 pt-3 pb-6 md:pb-4 shadow-[0_-15px_30px_rgba(0,0,0,0.05)] z-[60]">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Total Payable</span>
           <span className="text-lg font-black text-zinc-900">₹{total.toLocaleString('en-IN')}</span>
         </div>
         <button 
           onClick={handlePayment}
-          disabled={!isCheckoutReady || isProcessing}
-          className={`w-full font-bold text-sm tracking-widest uppercase py-3.5 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all ${
-            isCheckoutReady && !isProcessing 
-              ? 'bg-[#C9A15B] text-white hover:bg-[#b08d4f] active:scale-[0.98]' 
-              : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
+          disabled={btnState.disabled}
+          className={`w-full font-bold text-sm tracking-widest uppercase py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all ${
+            btnState.disabled 
+              ? btnState.style 
+              : 'bg-[#4A0B49] text-white hover:bg-[#340733] shadow-[0_4px_14px_rgba(74,11,73,0.3)] active:scale-[0.98]'
           }`}
         >
           {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-4 h-4" />} 
-          {isCheckoutReady ? "Pay Now" : "Complete Details"}
+          {btnState.text}
         </button>
       </div>
 
@@ -692,7 +718,7 @@ function CheckoutPage() {
         onSuccess={() => {
           setIsAuthModalOpen(false);
           toast.success("Successfully verified!");
-          fetchSecureProfile(); // Fetches profile and manages step unrolling
+          fetchSecureProfile();
         }}
       />
     </>

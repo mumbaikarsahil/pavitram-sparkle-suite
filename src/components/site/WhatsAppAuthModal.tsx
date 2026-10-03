@@ -81,11 +81,17 @@ export function WhatsAppAuthModal({ isOpen, onClose, onSuccess }: WhatsAppAuthMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full font-sans relative animate-in zoom-in-95 duration-200">
+    // ✨ FIX 1: z-[100] to completely cover the bottom navbar. items-end on mobile, items-center on sm+
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      
+      {/* ✨ FIX 2: rounded-t-3xl for mobile bottom-sheet look, rounded-2xl for desktop. Added pb-8 for mobile safe area */}
+      <div className="bg-white pt-4 pb-8 px-6 sm:p-8 rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-200 shadow-2xl w-full sm:max-w-sm font-sans relative animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
         
+        {/* ✨ FIX 3: Mobile App Drag Handle (hidden on desktop) */}
+        <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-6 sm:hidden" />
+
         {/* Close Button */}
-        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-800 transition-colors p-1">
+        <button onClick={onClose} className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-zinc-800 transition-colors p-1 bg-zinc-50 rounded-full sm:bg-transparent">
           <X className="w-5 h-5" />
         </button>
 
@@ -110,12 +116,12 @@ export function WhatsAppAuthModal({ isOpen, onClose, onSuccess }: WhatsAppAuthMo
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                 maxLength={10}
-                className="h-12 text-base rounded-xl border-[#E9D8C3] focus:border-[#C9A15B] focus:ring-[#C9A15B]"
+                className="h-14 text-lg font-semibold rounded-xl border-[#E9D8C3] focus:border-[#4A1F58] focus:ring-1 focus:ring-[#4A1F58]"
               />
             </div>
             {errorMsg && <p className="text-xs text-rose-500 font-medium text-center">{errorMsg}</p>}
-            <Button onClick={handleSendOtp} disabled={isLoading || phone.length !== 10} className="w-full h-12 rounded-xl bg-[#4A1F58] hover:bg-[#302832] text-white font-bold uppercase tracking-widest text-xs mt-2">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Get OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
+            <Button onClick={handleSendOtp} disabled={isLoading || phone.length !== 10} className="w-full h-14 rounded-xl bg-[#4A1F58] hover:bg-[#302832] text-white font-bold uppercase tracking-widest text-xs mt-4 active:scale-[0.98] transition-transform">
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Get OTP <ArrowRight className="w-4 h-4 ml-2" /></>}
             </Button>
           </div>
         ) : (
@@ -130,13 +136,13 @@ export function WhatsAppAuthModal({ isOpen, onClose, onSuccess }: WhatsAppAuthMo
               placeholder="000000"
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              className="text-center font-mono font-bold tracking-[0.5em] text-2xl h-14 rounded-xl border-[#E9D8C3] focus:border-[#C9A15B] focus:ring-[#C9A15B]"
+              className="text-center font-mono font-bold tracking-[0.5em] text-2xl h-14 rounded-xl border-[#E9D8C3] focus:border-[#4A1F58] focus:ring-1 focus:ring-[#4A1F58]"
             />
             {errorMsg && <p className="text-xs text-rose-500 font-medium text-center">{errorMsg}</p>}
-            <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length !== 6} className="w-full h-12 rounded-xl bg-[#4A1F58] hover:bg-[#302832] text-white font-bold uppercase tracking-widest text-xs mt-2">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Login"}
+            <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length !== 6} className="w-full h-14 rounded-xl bg-[#4A1F58] hover:bg-[#302832] text-white font-bold uppercase tracking-widest text-xs mt-4 active:scale-[0.98] transition-transform">
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify & Login"}
             </Button>
-            <div className="text-center mt-4">
+            <div className="text-center mt-5">
               {timer > 0 ? (
                 <span className="text-[11px] font-medium text-slate-400">Resend code in {timer}s</span>
               ) : (
