@@ -433,7 +433,7 @@ export function Header() {
           className="absolute top-[64px] md:top-[68px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="text-center mb-6">
-            <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Boutique</h4>
+            <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Showroom </h4>
             <p className="text-xs font-sans text-zinc-500 leading-relaxed">Unlock accurate delivery dates, Try-at-Home availability, and In-store exclusive designs.</p>
           </div>
 
@@ -475,7 +475,7 @@ export function Header() {
                    )}
                 </div>
                 <div className="flex-1">
-                   <span className="text-[9px] font-sans font-bold uppercase tracking-[0.15em] text-zinc-500 block mb-1">Nearest Boutique</span>
+                   <span className="text-[9px] font-sans font-bold uppercase tracking-[0.15em] text-zinc-500 block mb-1">Nearest Showroom</span>
                    <span className="text-sm font-serif font-medium text-[#302832] flex items-center justify-between group-hover:text-[#4A1F58] transition-colors">
                       <span className="truncate max-w-[150px]">{nearestStore.name}</span> 
                       <ChevronRight strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B]" />
@@ -489,7 +489,7 @@ export function Header() {
           )}
           <div className="text-center mt-2 pt-2">
              <Link to="/stores" className="text-[10px] font-sans font-bold text-[#C9A15B] hover:text-[#4A1F58] uppercase tracking-[0.15em] inline-flex items-center justify-center gap-1 group transition-colors">
-                View All Boutiques <ChevronRight strokeWidth={2} className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                View All Showroom <ChevronRight strokeWidth={2} className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
              </Link>
           </div>
         </div>

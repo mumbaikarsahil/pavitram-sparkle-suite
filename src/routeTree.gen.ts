@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
-import { Route as TrackOrderRouteImport } from './routes/track-order'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -19,7 +18,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as HarvestingRouteImport } from './routes/harvesting'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
-import { Route as AddressesRouteImport } from './routes/addresses'
 import { Route as SoonRouteImport } from './routes/Soon'
 import { Route as ShopRouteImport } from './routes/Shop'
 import { Route as SearchRouteImport } from './routes/Search'
@@ -27,9 +25,6 @@ import { Route as ComingSoonRouteImport } from './routes/ComingSoon'
 import { Route as AccountRouteImport } from './routes/Account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
-import { Route as PolicyTermsRouteImport } from './routes/policy/terms'
-import { Route as PolicyShippingRouteImport } from './routes/policy/shipping'
-import { Route as PolicyReturnsRouteImport } from './routes/policy/returns'
 import { Route as PolicyAboutRouteImport } from './routes/policy/about'
 import { Route as PolicySlugRouteImport } from './routes/policy.$slug'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
@@ -37,11 +32,6 @@ import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TrackOrderRoute = TrackOrderRouteImport.update({
-  id: '/track-order',
-  path: '/track-order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuccessRoute = SuccessRouteImport.update({
@@ -84,11 +74,6 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AddressesRoute = AddressesRouteImport.update({
-  id: '/addresses',
-  path: '/addresses',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SoonRoute = SoonRouteImport.update({
   id: '/Soon',
   path: '/Soon',
@@ -124,21 +109,6 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
   path: '/product/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PolicyTermsRoute = PolicyTermsRouteImport.update({
-  id: '/policy/terms',
-  path: '/policy/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PolicyShippingRoute = PolicyShippingRouteImport.update({
-  id: '/policy/shipping',
-  path: '/policy/shipping',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PolicyReturnsRoute = PolicyReturnsRouteImport.update({
-  id: '/policy/returns',
-  path: '/policy/returns',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PolicyAboutRoute = PolicyAboutRouteImport.update({
   id: '/policy/about',
   path: '/policy/about',
@@ -162,7 +132,6 @@ export interface FileRoutesByFullPath {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
-  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/harvesting': typeof HarvestingRoute
@@ -171,14 +140,10 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
-  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/policy/about': typeof PolicyAboutRoute
-  '/policy/returns': typeof PolicyReturnsRoute
-  '/policy/shipping': typeof PolicyShippingRoute
-  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesByTo {
@@ -188,7 +153,6 @@ export interface FileRoutesByTo {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
-  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/harvesting': typeof HarvestingRoute
@@ -197,14 +161,10 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
-  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/policy/about': typeof PolicyAboutRoute
-  '/policy/returns': typeof PolicyReturnsRoute
-  '/policy/shipping': typeof PolicyShippingRoute
-  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesById {
@@ -215,7 +175,6 @@ export interface FileRoutesById {
   '/Search': typeof SearchRoute
   '/Shop': typeof ShopRoute
   '/Soon': typeof SoonRoute
-  '/addresses': typeof AddressesRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/harvesting': typeof HarvestingRoute
@@ -224,14 +183,10 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stores': typeof StoresRoute
   '/success': typeof SuccessRoute
-  '/track-order': typeof TrackOrderRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/policy/$slug': typeof PolicySlugRoute
   '/policy/about': typeof PolicyAboutRoute
-  '/policy/returns': typeof PolicyReturnsRoute
-  '/policy/shipping': typeof PolicyShippingRoute
-  '/policy/terms': typeof PolicyTermsRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRouteTypes {
@@ -243,7 +198,6 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/harvesting'
@@ -252,14 +206,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/stores'
     | '/success'
-    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
     | '/policy/about'
-    | '/policy/returns'
-    | '/policy/shipping'
-    | '/policy/terms'
     | '/product/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -269,7 +219,6 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/harvesting'
@@ -278,14 +227,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/stores'
     | '/success'
-    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
     | '/policy/about'
-    | '/policy/returns'
-    | '/policy/shipping'
-    | '/policy/terms'
     | '/product/$slug'
   id:
     | '__root__'
@@ -295,7 +240,6 @@ export interface FileRouteTypes {
     | '/Search'
     | '/Shop'
     | '/Soon'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/harvesting'
@@ -304,14 +248,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/stores'
     | '/success'
-    | '/track-order'
     | '/wishlist'
     | '/category/$slug'
     | '/policy/$slug'
     | '/policy/about'
-    | '/policy/returns'
-    | '/policy/shipping'
-    | '/policy/terms'
     | '/product/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -322,7 +262,6 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   ShopRoute: typeof ShopRoute
   SoonRoute: typeof SoonRoute
-  AddressesRoute: typeof AddressesRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   HarvestingRoute: typeof HarvestingRoute
@@ -331,14 +270,10 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StoresRoute: typeof StoresRoute
   SuccessRoute: typeof SuccessRoute
-  TrackOrderRoute: typeof TrackOrderRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
   PolicySlugRoute: typeof PolicySlugRoute
   PolicyAboutRoute: typeof PolicyAboutRoute
-  PolicyReturnsRoute: typeof PolicyReturnsRoute
-  PolicyShippingRoute: typeof PolicyShippingRoute
-  PolicyTermsRoute: typeof PolicyTermsRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
 
@@ -349,13 +284,6 @@ declare module '@tanstack/react-router' {
       path: '/wishlist'
       fullPath: '/wishlist'
       preLoaderRoute: typeof WishlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/track-order': {
-      id: '/track-order'
-      path: '/track-order'
-      fullPath: '/track-order'
-      preLoaderRoute: typeof TrackOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/success': {
@@ -414,13 +342,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/addresses': {
-      id: '/addresses'
-      path: '/addresses'
-      fullPath: '/addresses'
-      preLoaderRoute: typeof AddressesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/Soon': {
       id: '/Soon'
       path: '/Soon'
@@ -470,27 +391,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/policy/terms': {
-      id: '/policy/terms'
-      path: '/policy/terms'
-      fullPath: '/policy/terms'
-      preLoaderRoute: typeof PolicyTermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/policy/shipping': {
-      id: '/policy/shipping'
-      path: '/policy/shipping'
-      fullPath: '/policy/shipping'
-      preLoaderRoute: typeof PolicyShippingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/policy/returns': {
-      id: '/policy/returns'
-      path: '/policy/returns'
-      fullPath: '/policy/returns'
-      preLoaderRoute: typeof PolicyReturnsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/policy/about': {
       id: '/policy/about'
       path: '/policy/about'
@@ -522,7 +422,6 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   ShopRoute: ShopRoute,
   SoonRoute: SoonRoute,
-  AddressesRoute: AddressesRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   HarvestingRoute: HarvestingRoute,
@@ -531,14 +430,10 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StoresRoute: StoresRoute,
   SuccessRoute: SuccessRoute,
-  TrackOrderRoute: TrackOrderRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
   PolicySlugRoute: PolicySlugRoute,
   PolicyAboutRoute: PolicyAboutRoute,
-  PolicyReturnsRoute: PolicyReturnsRoute,
-  PolicyShippingRoute: PolicyShippingRoute,
-  PolicyTermsRoute: PolicyTermsRoute,
   ProductSlugRoute: ProductSlugRoute,
 }
 export const routeTree = rootRouteImport

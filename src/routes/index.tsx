@@ -899,6 +899,17 @@ export function Index() {
                 )}
               </button>
             </div>
+
+            {/* ✨ NEW: View All Stores Link */}
+            <div className="mt-6 md:mt-8 flex justify-center">
+              <Link 
+                to="/stores" 
+                className="inline-flex items-center text-[11px] font-bold font-sans uppercase tracking-[0.15em] text-[#4A1F58] hover:text-[#C9A15B] transition-colors relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[1px] after:bg-[#C9A15B]/40 hover:after:bg-[#C9A15B] after:transition-colors"
+              >
+                Or View All Showrooms Directory
+              </Link>
+            </div>
+
           </div>
         </div>
       </section>

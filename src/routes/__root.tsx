@@ -132,7 +132,13 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  
+  // Check if we are on an Auth route or the Checkout route
   const isAuthRoute = pathname.startsWith("/auth");
+  const isCheckoutRoute = pathname.startsWith("/checkout");
+  
+  // Combine conditions to hide global navigation elements
+  const hideGlobalNav = isAuthRoute || isCheckoutRoute;
 
   return (
   <CartProvider>
@@ -140,12 +146,16 @@ function RootComponent() {
       {/* ✨ WRAPPED APP IN PREMIUM SMOOTH SCROLL */}
       <ReactLenis root options={{ lerp: 0.07, duration: 1.2, smoothWheel: true }}>
         <div className="flex min-h-screen flex-col pb-16 md:pb-0">
-          {!isAuthRoute && <Header />}
+          
+          {!hideGlobalNav && <Header />}
+          
           <main className="flex-1">
             <Outlet />
           </main>
-          {!isAuthRoute && <Footer />}
-          {!isAuthRoute && <MobileBottomNav />}
+          
+          {!hideGlobalNav && <Footer />}
+          {!hideGlobalNav && <MobileBottomNav />}
+          
         </div>
       </ReactLenis>
       <Toaster />

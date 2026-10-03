@@ -2,16 +2,14 @@ import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
 import { Instagram, Facebook, Youtube, MapPin, Phone, Mail, ChevronDown, ChevronUp, ShieldCheck, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client"; // Adjust path if needed
+import { supabase } from "@/integrations/supabase/client"; 
 
 const MAIN_COLUMNS = [
   {
     title: "Our Heritage",
     links: [
-      { label: "About Pavitram", to: "/about" },
-      { label: "Design & Craftsmanship", to: "/heritage" },
-      { label: "The Pavitram Promise", to: "/heritage" },
-      { label: "Careers", to: "/careers" },
+      // ✨ Static route directly to your about.tsx file
+      { label: "About Pavitram", to: "/policy/about" },
     ],
   },
   {
@@ -29,36 +27,28 @@ const MAIN_COLUMNS = [
     title: "Customer Care",
     links: [
       { label: "Track Order", to: "/track-order" },
+      // ✨ Dynamic routes using the exact approved slugs
       { label: "Exchange & Buy-Back", to: "/policy/$slug", params: { slug: "exchange-buyback" } },
       { label: "Shipping & Delivery", to: "/policy/$slug", params: { slug: "shipping" } },
-      { label: "Terms of Service", to: "/policy/$slug", params: { slug: "terms" } },
       { label: "Gift Vouchers", to: "/policy/$slug", params: { slug: "gift-voucher" } },
+      { label: "Terms of Service", to: "/policy/$slug", params: { slug: "terms" } },
     ],
   },
 ];
 
+// Cleaned up SEO links to only include broad, standard search terms
 const SEO_LINKS = [
   {
-    title: "Jewellery",
-    items: ["Earrings", "Rings", "Necklaces", "Bangles", "Mangalsutras", "Pendants", "Bracelets", "Chains"]
+    title: "Discover Jewellery",
+    items: ["Diamond Earrings", "Engagement Rings", "Gold Necklaces", "Diamond Bangles", "Traditional Mangalsutras", "Solitaire Pendants"]
   },
   {
-    title: "By Categories",
-    items: [
-      { label: "Earrings", links: ["Drop Earrings", "Hoop Earrings", "Stud Earrings", "Modern Earrings", "Traditional Earrings", "Statement Earrings"] },
-      { label: "Necklace", links: ["Short Necklace", "Choker Necklace", "Long Necklace", "Lariat Necklace", "Traditional Necklace", "Classic Necklace", "Statement Necklaces"] },
-      { label: "Mangalsutra", links: ["Mangalsutra Pendant", "Mangalsutra Bracelet", "Modern Mangalsutra", "Traditional Mangalsutra", "Mangalsutra Chain"] },
-      { label: "Rings", links: ["Band Rings", "Traditional Rings", "Classic Rings", "Modern Rings", "Statement Rings", "Rings For Men", "Couple Bands"] },
-      { label: "Bangles & Bracelets", links: ["Tennis Bracelets", "Classic Bracelets", "Oval Bangles", "Single Bangle Design", "Traditional Bangles", "Kada"] }
-    ]
-  },
-  {
-    title: "Wedding Jewellery",
-    items: ["Bridal Sets", "Engagement Rings", "Wedding Bands", "Trousseau Essentials", "Bridal Necklaces", "Heavy Bangles"]
+    title: "Shop By Style",
+    items: ["Bridal Jewellery", "Everyday Wear", "Office Wear Jewellery", "Party Wear", "Gifting Collection", "Men's Jewellery"]
   },
   {
     title: "Find the nearest Pavitram Store",
-    items: ["Mumbai", "Pune", "Delhi", "Bangalore", "Hyderabad", "Ahmedabad", "Surat", "Jaipur", "Chandigarh", "Kolkata", "Indore", "Thane", "Navi Mumbai"]
+    items: ["Mumbai", "Andheri West", "Lokhandwala", "Juhu", "Bandra", "Borivali", "Goregaon"]
   }
 ];
 
@@ -109,7 +99,6 @@ export function Footer() {
         <div className="w-full lg:w-[35%] bg-[#F7F1E8] py-12 lg:py-16 px-4 md:px-8 flex lg:justify-end border-b lg:border-b-0 lg:border-r border-[#E9D8C3]">
           <div className="w-full lg:max-w-[490px] lg:pr-8 flex flex-col items-start">
             
-            {/* Bigger Logo without the wrapper box */}
             <Link to="/" className="inline-block mb-8 hover:opacity-80 transition-opacity">
               <Logo className="h-16 md:h-20 w-auto text-[#4A1F58]" />
             </Link>
@@ -139,7 +128,6 @@ export function Footer() {
                 </button>
               </div>
               
-              {/* Status Messages */}
               <div className="h-4 mt-1">
                 {status === "error" && <p className="text-xs text-red-500">{errorMessage}</p>}
                 {status === "success" && <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium"><ShieldCheck className="w-3.5 h-3.5"/> Thank you for subscribing!</p>}
@@ -151,13 +139,11 @@ export function Footer() {
 
         {/* Right Side: Royal Purple Background */}
         <div className="w-full lg:w-[65%] bg-[#4A1F58] py-12 lg:py-16 px-4 md:px-8 flex lg:justify-start relative overflow-hidden">
-          {/* Subtle Background Accent */}
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#C9A15B]/5 rounded-full blur-[120px] pointer-events-none" />
           
           <div className="w-full lg:max-w-[910px] lg:pl-10 relative z-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-6">
               
-              {/* Navigation Links */}
               {MAIN_COLUMNS.map((col) => (
                 <div key={col.title}>
                   <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-6">
@@ -166,13 +152,15 @@ export function Footer() {
                   <ul className="space-y-3.5 text-[13px] font-sans text-[#F7F1E8]/80">
                     {col.links.map((link, idx) => (
                       <li key={idx}>
-                        <Link 
-                          to={link.to} 
-                          params={link.params} 
-                          className="hover:text-[#C9A15B] transition-colors block py-0.5"
-                        >
-                          {link.label}
-                        </Link>
+                        {link.params ? (
+                          <Link to={link.to} params={link.params} className="hover:text-[#C9A15B] transition-colors block py-0.5">
+                            {link.label}
+                          </Link>
+                        ) : (
+                          <Link to={link.to} className="hover:text-[#C9A15B] transition-colors block py-0.5">
+                            {link.label}
+                          </Link>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -202,16 +190,15 @@ export function Footer() {
 
                 <h4 className="font-sans font-bold uppercase tracking-[0.15em] text-[#C9A15B] text-[11px] mb-4 mt-8">Follow Us</h4>
                 <div className="flex items-center gap-3">
-                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Instagram className="w-4 h-4" /></a>
-                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Facebook className="w-4 h-4" /></a>
-                  <a href="#" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Youtube className="w-4 h-4" /></a>
+                  <a href="https://www.instagram.com/pavitramdiamondjewellery/?hl=en" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Instagram className="w-4 h-4" /></a>
+                  <a href="https://www.facebook.com/pavitram.co/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Facebook className="w-4 h-4" /></a>
+                  <a href="https://www.youtube.com/@pavitramdiamondjewellery" className="w-10 h-10 rounded-sm border border-[#C9A15B]/30 bg-transparent flex items-center justify-center text-[#F7F1E8] hover:bg-[#C9A15B] hover:text-[#4A1F58] hover:border-[#C9A15B] transition-all"><Youtube className="w-4 h-4" /></a>
                 </div>
               </div>
 
             </div>
           </div>
         </div>
-
       </div>
 
       {/* 2. BOTTOM SECTION: Beige SEO Deep Links */}
@@ -226,38 +213,21 @@ export function Footer() {
           </button>
 
           <div className={`space-y-8 ${isSeoExpanded ? 'block' : 'hidden md:block'}`}>
-            {SEO_LINKS.map((section, idx) => (
-              <div key={idx}>
-                <h5 className="text-[11px] font-sans font-bold text-[#302832] mb-3">{section.title}</h5>
-                
-                {/* Handle nested By Category structure */}
-                {section.title === "By Categories" ? (
-                  <div className="space-y-2.5">
-                    {(section.items as any[]).map((subItem, sIdx) => (
-                      <div key={sIdx} className="text-[11px] font-sans text-zinc-500 leading-relaxed flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <strong className="text-zinc-800 font-semibold">{subItem.label}:</strong>
-                        {subItem.links.map((link: string, lIdx: number) => (
-                          <React.Fragment key={lIdx}>
-                            <Link to="/Search" className="hover:text-[#C9A15B] transition-colors">{link}</Link>
-                            {lIdx < subItem.links.length - 1 && <span className="text-zinc-300">|</span>}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* Handle flat lists */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {SEO_LINKS.map((section, idx) => (
+                <div key={idx}>
+                  <h5 className="text-[11px] font-sans font-bold text-[#302832] mb-3">{section.title}</h5>
                   <div className="text-[11px] font-sans text-zinc-500 leading-relaxed flex flex-wrap items-center gap-x-2 gap-y-1">
                     {(section.items as string[]).map((item, iIdx) => (
                       <React.Fragment key={iIdx}>
-                        <Link to="/Search" className="hover:text-[#C9A15B] transition-colors">{item}</Link>
+                        <Link to="/Search" search={{ q: item }} className="hover:text-[#C9A15B] transition-colors">{item}</Link>
                         {iIdx < section.items.length - 1 && <span className="text-zinc-300">|</span>}
                       </React.Fragment>
                     ))}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -1,16 +1,46 @@
 {
-    "rewrites": [
-      {
-        "source": "/products/detail/(.*)",
-        "destination": "/blocked.html"
-      },
-      {
-        "source": "/wp-(.*)",
-        "destination": "/blocked.html"
-      },
-      {
-        "source": "/xmlrpc.php",
-        "destination": "/blocked.html"
-      }
-    ]
-  }
+  "redirects": [
+    {
+      "source": "/product-category/(.*)",
+      "destination": "/Shop",
+      "permanent": true
+    },
+    {
+      "source": "/products/detail/(.*)",
+      "destination": "/Shop",
+      "permanent": true
+    },
+    {
+      "source": "/jewellery/(.*)",
+      "destination": "/Shop",
+      "permanent": true
+    },
+    {
+      "source": "/shopping/product/detail/(.*)",
+      "destination": "/Shop",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/wp-(.*)",
+      "destination": "/blocked.html"
+    },
+    {
+      "source": "/xmlrpc.php",
+      "destination": "/blocked.html"
+    },
+    {
+      "source": "/author/(.*)",
+      "destination": "/blocked.html"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

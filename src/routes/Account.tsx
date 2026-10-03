@@ -278,11 +278,18 @@ function AccountDashboard() {
                       <input required type="text" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full h-11 px-3 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-[#4A1F58] focus:bg-white outline-none transition-all" />
                     </div>
                   </div>
+                  
+                  {/* ✨ ADDED MISSING EMAIL FIELD TO SATISFY BACKEND ZOD VALIDATION */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">Email Address *</label>
+                    <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full h-11 px-3 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-[#4A1F58] focus:bg-white outline-none transition-all" placeholder="For order invoices" />
+                  </div>
+
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">Date of Birth</label>
                     <input type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} className="w-full h-11 px-3 text-sm text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-[#4A1F58] focus:bg-white outline-none transition-all" />
                   </div>
-                  <button type="submit" disabled={isSaving || !formData.firstName || !formData.lastName} className="w-full bg-[#4A1F58] hover:bg-[#302832] text-white text-[11px] font-bold uppercase tracking-widest h-12 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-4 shadow-sm">
+                  <button type="submit" disabled={isSaving || !formData.firstName || !formData.lastName || !formData.email} className="w-full bg-[#4A1F58] hover:bg-[#302832] text-white text-[11px] font-bold uppercase tracking-widest h-12 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-4 shadow-sm">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Profile"}
                   </button>
                 </form>
@@ -308,7 +315,7 @@ function AccountDashboard() {
           </h1>
           <div className="w-16 flex justify-end">
             <span className="text-[10px] uppercase font-bold text-[#C9A15B] bg-[#C9A15B]/10 px-2 py-0.5 rounded-full border border-[#C9A15B]/20">
-              Patron
+              Profile
             </span>
           </div>
         </div>

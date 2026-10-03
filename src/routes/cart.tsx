@@ -252,7 +252,7 @@ function CartPage() {
                         </div>
                         
                         <div className="text-[10px] font-sans font-bold uppercase tracking-widest text-[#C9A15B]">
-                          Dispatched in {item.manufacturing_buffer_days} Days
+                          Delivery in {item.manufacturing_buffer_days} Days*
                         </div>
                       </div>
                     </div>
@@ -390,7 +390,7 @@ function CartPage() {
                 <RefreshCw className="w-3.5 h-3.5" />
               </div>
               <div>
-                <h4 className="text-[10px] font-sans font-bold uppercase tracking-widest text-[#302832]">15 Day exchange</h4>
+                <h4 className="text-[10px] font-sans font-bold uppercase tracking-widest text-[#302832]">15-20 Day Delivery</h4>
                 <p className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest mt-0.5">On Online Orders</p>
               </div>
             </div>

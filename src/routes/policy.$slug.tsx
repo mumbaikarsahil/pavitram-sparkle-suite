@@ -50,7 +50,7 @@ function DynamicPolicyPage() {
   return (
     <div className="min-h-screen bg-[#F7F1E8] font-sans pb-24 relative overflow-hidden">
       <img 
-        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+        src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
         alt="Decorative Floral" 
         className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
       />

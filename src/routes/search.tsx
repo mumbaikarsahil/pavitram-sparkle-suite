@@ -296,7 +296,7 @@ function SearchPage() {
             {/* ✨ DYNAMIC CATEGORY GRID SECTION */}
             <section className="relative mt-16 md:mt-24 pt-12 md:pt-16 pb-12 md:pb-24 border-t border-[#E9D8C3] z-20 overflow-hidden bg-[#F7F1E8]/30 rounded-sm">
               <img 
-                src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+                src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
                 alt="Decorative Background" 
                 className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply"
               />

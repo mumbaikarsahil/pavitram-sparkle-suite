@@ -435,8 +435,8 @@ export default function ProductPage() {
                 <div className="flex items-start gap-4 p-4 rounded-sm bg-[#F7F1E8]/50 border border-[#E9D8C3]">
                   <Truck className="w-5 h-5 text-[#C9A15B] shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-sans font-bold text-[#302832]">Free Express Delivery</h4>
-                    <p className="text-xs font-sans text-zinc-500 mt-1 leading-relaxed">Ready to dispatch in {product.manufacturing_buffer_days} Days. Fully insured transit via trusted logistics partners.</p>
+                    <h4 className="text-sm font-sans font-bold text-[#302832]">All over India Delivery</h4>
+                    <p className="text-xs font-sans text-zinc-500 mt-1 leading-relaxed">Delivery takes approx {product.manufacturing_buffer_days} Days. Fully insured transit via trusted logistics partners.</p>
                   </div>
                 </div>
               </div>
@@ -531,8 +531,8 @@ export default function ProductPage() {
                     <Info className="w-3.5 h-3.5" /> Shipping & Exchange Policy
                  </h4>
                  <ul className="text-xs font-sans text-zinc-600 space-y-2 list-disc pl-4">
-                   <li>Complimentary insured shipping across India.</li>
-                   <li>Hassle-free exchange policy.</li>
+                   <li>Shipping across India.</li>
+                   <li>Hassle-free lifetime exchange policy.</li>
                    <li>Product must remain unused with original tags and certification intact.</li>
                  </ul>
               </div>
@@ -548,7 +548,7 @@ export default function ProductPage() {
         <div className="relative mt-12 overflow-hidden border-t border-[#E9D8C3]">
           {/* Subtle Background Watermark */}
           <img 
-            src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/back_layer.webp" 
+            src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp" 
             alt="Decorative Floral" 
             className="absolute inset-0 w-full h-full object-cover opacity-[0.06] pointer-events-none mix-blend-multiply z-0"
           />
