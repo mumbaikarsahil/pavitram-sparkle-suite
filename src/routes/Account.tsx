@@ -5,7 +5,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { 
   User, Package, MapPin, ShieldCheck, LogOut, 
   Loader2, AlertTriangle, CheckCircle2,
-  ArrowLeft, Edit3, X, Calendar, Phone, Sparkles, Store, ChevronRight, Gift, ShoppingBag
+  ArrowLeft, Edit3, X, Calendar, Phone, Sparkles, Store, ChevronRight, Gift, ShoppingBag,
+  TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
 
