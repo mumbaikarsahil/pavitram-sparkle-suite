@@ -16,13 +16,21 @@ export const getAccountProfileFn = createServerFn({ method: 'POST' })
     // 🔒 SECURED: Extracts verified customerId from HttpOnly cookie
     const { customerId } = await getAuthenticatedCustomer();
 
-    const [customerRes, profileRes, ordersRes] = await Promise.all([
-      supabaseAdmin
-        .from('customers')
-        .select('id, full_name, phone, email, birth_date, anniversary_date')
-        .eq('id', customerId)
-        .single(),
+    // 1. Fetch the web customer FIRST
+    const { data: customerData, error: customerError } = await supabaseAdmin
+      .from('customers')
+      .select('*')
+      .eq('id', customerId)
+      .single();
 
+    if (customerError || !customerData) {
+      throw new Error("Unable to retrieve account details.");
+    }
+
+    // Strip everything except the core 10-digit phone number (e.g., +91 9876543210 -> 9876543210)
+    const cleanPhone = customerData.phone ? customerData.phone.replace(/\D/g, '').slice(-10) : '';
+
+    const [profileRes, ordersRes] = await Promise.all([
       supabaseAdmin
         .from('ecommerce_customer_profiles')
         .select('*')
@@ -32,31 +40,48 @@ export const getAccountProfileFn = createServerFn({ method: 'POST' })
       supabaseAdmin
         .from('ecommerce_orders')
         .select(`
-          id,
-          order_number,
-          status,
-          final_total,
-          created_at,
-          expected_delivery_date,
-          ecommerce_order_items (
-            id,
-            quantity,
-            total_price,
-            product_id
-          )
+          id, order_number, status, final_total, created_at, expected_delivery_date,
+          ecommerce_order_items ( id, quantity, total_price, product_id )
         `)
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
     ]);
 
-    if (customerRes.error || !customerRes.data) {
-      throw new Error("Unable to retrieve account details.");
+    let loyaltyData = null;
+
+    // ✨ STEP 1: Try finding loyalty account by exact Web Customer ID
+    const { data: exactLoyalty } = await supabaseAdmin
+      .from('loyalty_accounts')
+      .select('*')
+      .eq('customer_id', customerId)
+      .maybeSingle();
+
+    if (exactLoyalty && Number(exactLoyalty.total_points) > 0) {
+      loyaltyData = exactLoyalty;
+    } 
+    // ✨ STEP 2: If points are 0 or null, aggressively hunt the POS loyalty account via 10-digit Phone Match
+    else if (cleanPhone && cleanPhone.length === 10) {
+      const { data: phoneLoyalty } = await supabaseAdmin
+        .from('loyalty_accounts')
+        .select('*, customers!inner(phone)')
+        .ilike('customers.phone', `%${cleanPhone}%`)
+        .order('total_points', { ascending: false })
+        .limit(1);
+
+      if (phoneLoyalty && phoneLoyalty.length > 0) {
+        loyaltyData = phoneLoyalty[0]; // Grab the account that actually has points!
+      } else {
+         loyaltyData = exactLoyalty; // Fallback
+      }
+    } else {
+      loyaltyData = exactLoyalty;
     }
 
     return {
-      customer: customerRes.data,
+      customer: customerData,
       profile: profileRes.data || null,
-      orders: ordersRes.data || []
+      orders: ordersRes.data || [],
+      loyalty: loyaltyData
     };
   });
 
@@ -77,12 +102,9 @@ export const updateAccountProfileFn = createServerFn({ method: 'POST' })
     pincode: z.string().optional()
   }))
   .handler(async ({ data }) => {
-    // 🔒 SECURED: Customer can only mutate their OWN profile
     const { customerId } = await getAuthenticatedCustomer();
-
     const fullName = `${data.firstName} ${data.lastName}`.trim();
 
-    // 1. Update master customer table
     const { error: customerError } = await supabaseAdmin
       .from('customers')
       .update({
@@ -93,12 +115,8 @@ export const updateAccountProfileFn = createServerFn({ method: 'POST' })
       })
       .eq('id', customerId);
 
-    if (customerError) {
-      console.error("Update Customer Error:", customerError);
-      throw new Error("Failed to update personal details.");
-    }
+    if (customerError) throw new Error("Failed to update personal details.");
 
-    // 2. Upsert primary address in ecommerce profile
     const { data: updatedProfile, error: profileError } = await supabaseAdmin
       .from('ecommerce_customer_profiles')
       .upsert({
@@ -114,10 +132,7 @@ export const updateAccountProfileFn = createServerFn({ method: 'POST' })
       .select()
       .single();
 
-    if (profileError) {
-      console.error("Update Profile Error:", profileError);
-      throw new Error("Failed to save address details.");
-    }
+    if (profileError) throw new Error("Failed to save address details.");
 
     return { success: true, profile: updatedProfile };
   });
@@ -127,27 +142,17 @@ export const updateAccountProfileFn = createServerFn({ method: 'POST' })
 // ==========================================
 export const deleteAccountFn = createServerFn({ method: 'POST' })
   .handler(async () => {
-    // 🔒 SECURED: Prevents an attacker from deleting other users' accounts
     const { customerId } = await getAuthenticatedCustomer();
 
-    // Anonymize/erase ecommerce data in compliance with DPDP 2023
-    await supabaseAdmin
-      .from('ecommerce_customer_profiles')
-      .delete()
-      .eq('customer_id', customerId);
+    await supabaseAdmin.from('ecommerce_customer_profiles').delete().eq('customer_id', customerId);
 
-    await supabaseAdmin
-      .from('customers')
-      .update({
+    await supabaseAdmin.from('customers').update({
         full_name: 'Deleted User',
         email: null,
         phone: `DELETED_${Date.now()}`,
         customer_status: 'Churned'
-      })
-      .eq('id', customerId);
+      }).eq('id', customerId);
 
-    // Invalidate session cookie immediately
     clearAuthCookie();
-
     return { success: true, message: "Account data permanently erased." };
   });
