@@ -273,11 +273,11 @@ export function Header() {
         />
       </div>
 
-      {/* ✨ MOBILE NAVIGATION BAR (Restored Sizing and Exact Ordering) */}
-      <div className="md:hidden h-[90px] w-full flex items-center justify-between px-2 sm:px-4 relative z-10 pt-4 overflow-hidden gap-1">
+      {/* ✨ MOBILE NAVIGATION BAR (Strict gap-3 prevents touching) */}
+      <div className="md:hidden h-[90px] w-full flex items-center justify-between px-2 sm:px-4 relative z-10 pt-4 overflow-hidden gap-3">
         
-        {/* Left Side Grouping: Menu + Logos + Dandiyas */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Left Side Grouping: Menu + Main Logo + Left Dandiya + Text Logo */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 pr-1">
           
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
@@ -287,22 +287,19 @@ export function Header() {
             <Menu strokeWidth={1.5} className="w-7 h-7 sm:w-8 sm:h-8" />
           </button>
 
-          <Link to="/" className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
-            {/* 1. Main Logo (INCREASED SIZE) */}
-            <Logo className="h-8 sm:h-[38px] w-auto object-contain shrink-0" />
+          <Link to="/" className="flex items-center gap-1.5 sm:gap-2 shrink min-w-0">
+            {/* 1. Main Logo */}
+            <Logo className="h-9 sm:h-[42px] w-auto object-contain shrink-0" />
             
             {/* 2. Left Dandiya */}
-            <img src="/dandiya-left.png" alt="" className="h-11 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
+            <img src="/dandiya-left.png" alt="" className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
             
-            {/* 3. Text Logo (INCREASED SIZE) */}
+            {/* 3. Text Logo (Will safely shrink & truncate if running out of space) */}
             <img 
               src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
               alt="Pavitram Diamond Jewellery" 
-              className="h-[18px] sm:h-[22px] w-auto object-contain shrink-0" 
+              className="h-[18px] sm:h-[22px] w-auto max-w-[80px] min-[400px]:max-w-none object-contain object-left shrink" 
             />
-            
-            {/* 4. Right Dandiya (Hides on very narrow phones to preserve the cart pill) */}
-            <img src="/dandiya-right.png" alt="" className="h-11 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0 hidden min-[390px]:block" />
           </Link>
         </div>
 
