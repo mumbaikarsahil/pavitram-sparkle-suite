@@ -6,7 +6,7 @@ import {
   User, Package, MapPin, ShieldCheck, LogOut, 
   Loader2, AlertTriangle, CheckCircle2,
   ArrowLeft, Edit3, X, Calendar, Phone, Sparkles, Store, ChevronRight, Gift, ShoppingBag,
-  TrendingUp
+  TrendingUp, Award
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +19,8 @@ export const Route = createFileRoute('/Account')({
 
 function AccountDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'privacy'>('orders');
+  // ✨ Added 'loyalty' to the activeTab state
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'loyalty' | 'privacy'>('orders');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -38,6 +39,9 @@ function AccountDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [loyalty, setLoyalty] = useState<any>(null);
+  
+  // ✨ State to hold transactions for the new tab
+  const [loyaltyTransactions, setLoyaltyTransactions] = useState<any[]>([]);
 
   const [whatsappConsent, setWhatsappConsent] = useState(true);
 
@@ -60,6 +64,9 @@ function AccountDashboard() {
       setProfile(p);
       setOrders(res.orders || []);
       setLoyalty(res.loyalty || null);
+      
+      // ✨ Set the transactions from the backend
+      setLoyaltyTransactions(res.loyaltyTransactions || []);
 
       if (c || p) {
         setFormData({
@@ -273,7 +280,7 @@ function AccountDashboard() {
         </div>
       )}
 
-      {/* ✨ LOYALTY COIN EXPLANATION MODAL */}
+      {/* ✨ LOYALTY EXPLANATION MODAL */}
       {showLoyaltyInfo && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#302832]/80 backdrop-blur-sm sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
@@ -286,7 +293,7 @@ function AccountDashboard() {
                 <div className="w-16 h-16 bg-gradient-to-br from-[#EAB308] to-[#C9A15B] rounded-full flex items-center justify-center shadow-lg mb-4 ring-4 ring-[#FAF7F2]">
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-serif font-black text-[#302832] tracking-tight">Pavitram Coins</h2>
+                <h2 className="text-2xl font-serif font-black text-[#302832] tracking-tight">Pavitram Loyalty Points</h2>
                 <p className="text-sm font-medium text-zinc-500 mt-1">Your gateway to exclusive rewards.</p>
               </div>
 
@@ -297,7 +304,7 @@ function AccountDashboard() {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-[#302832]">How to Earn</h4>
-                    <p className="text-xs text-zinc-500 mt-0.5">Earn coins on every valid jewellery purchase made in-store or online.</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Earn points on every valid jewellery purchase made in-store or online.</p>
                   </div>
                 </div>
                 <div className="bg-[#FAF7F2] rounded-2xl p-4 flex items-center gap-4 border border-[#EBE4D8]">
@@ -306,7 +313,7 @@ function AccountDashboard() {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-[#302832]">Value & Redemption</h4>
-                    <p className="text-xs text-zinc-500 mt-0.5"><span className="font-bold text-[#0A7B3E]">1 Coin = ₹1.</span> Redeem your coins seamlessly at checkout for instant discounts.</p>
+                    <p className="text-xs text-zinc-500 mt-0.5"><span className="font-bold text-[#0A7B3E]">1 Point = ₹1.</span> Redeem your points seamlessly at checkout for instant discounts.</p>
                   </div>
                 </div>
                 {loyalty?.referral_code && (
@@ -316,7 +323,7 @@ function AccountDashboard() {
                       <span className="text-lg font-mono font-black tracking-[0.2em] text-[#C9A15B]">{loyalty.referral_code}</span>
                     </div>
                     <p className="text-[10px] text-zinc-500 text-center mt-2 font-medium leading-relaxed">
-                      Share this code with friends. They get 10% off, and you earn a 5% coin bonus!
+                      Share this code with friends. They get 10% off, and you earn a 5% point bonus!
                     </p>
                   </div>
                 )}
@@ -355,7 +362,7 @@ function AccountDashboard() {
         {/* LEFT COLUMN: Profile Card & Navigation */}
         <div className="w-full md:w-[320px] shrink-0 space-y-6">
           
-          {/* PROFILE SUMMARY CARD (Matches Screenshot exactly) */}
+          {/* PROFILE SUMMARY CARD */}
           <section className="bg-white rounded-3xl p-5 border border-[#EBE4D8] shadow-sm flex flex-col items-center sm:items-start text-center sm:text-left relative overflow-hidden">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 w-full">
               <div className="w-16 h-16 rounded-2xl bg-[#302832] flex items-center justify-center text-white font-serif text-3xl font-bold shadow-md shrink-0">
@@ -374,17 +381,23 @@ function AccountDashboard() {
                   </span>
                 </div>
 
-                {/* ✨ NATIVE E-COMMERCE COIN PILL (Matches screenshot) */}
-                {/* ✨ NATIVE E-COMMERCE COIN PILL (Static Display) */}
-<div className="mt-3 inline-flex items-center gap-2 bg-gradient-to-r from-[#FFFDF5] to-white border border-[#FDE68A] pl-1.5 pr-4 py-1.5 rounded-full shadow-sm w-max">
-  <div className="w-6 h-6 bg-gradient-to-br from-[#F59E0B] to-[#D97706] rounded-full flex items-center justify-center shadow-inner shrink-0">
-    <Sparkles className="w-3.5 h-3.5 text-white" />
-  </div>
-  <div className="flex flex-col items-start justify-center text-left">
-    <span className="text-[8px] uppercase font-black text-[#D97706] leading-none tracking-widest mb-0.5">Pavitram Coins</span>
-    <span className="text-sm font-black text-[#92400E] leading-none">{loyalty?.total_points ?? 0}</span>
-  </div>
-</div>
+                {/* Pavitram loyalty program points pill */}
+                <div 
+                  className="mt-3 inline-flex items-center gap-3 bg-gradient-to-r from-[#FFFDF5] to-white border border-[#FDE68A] p-2 pr-5 rounded-2xl shadow-sm w-max cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setShowLoyaltyInfo(true)}
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#F59E0B] to-[#D97706] rounded-xl flex items-center justify-center shadow-inner shrink-0">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex flex-col items-start justify-center text-left">
+                    <span className="text-[9px] uppercase font-bold text-[#D97706] leading-tight tracking-wider mb-0.5">
+                      Pavitram Loyalty Program
+                    </span>
+                    <span className="text-base font-black text-[#92400E] leading-none flex items-center gap-1">
+                      {loyalty?.total_points ?? 0} <span className="text-[10px] font-bold uppercase tracking-widest text-[#92400E]/70">Pts</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -423,6 +436,17 @@ function AccountDashboard() {
               <div className="flex items-center gap-3"><ShoppingBag className="w-4 h-4" /> My Orders</div>
               {orders.length > 0 && <span className="text-[10px] font-mono bg-[#EBE4D8] px-2 py-0.5 rounded-full text-zinc-800">{orders.length}</span>}
             </button>
+
+            {/* LOYALTY TAB BUTTON (Desktop) */}
+            <button 
+              onClick={() => setActiveTab('loyalty')}
+              className={`flex items-center justify-between px-5 py-4 text-sm font-bold transition-all border-b border-[#EBE4D8] ${
+                activeTab === 'loyalty' ? 'bg-[#FAF7F2] text-[#4A1F58] border-l-4 border-l-[#4A1F58]' : 'text-zinc-600 hover:bg-zinc-50 border-l-4 border-l-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-3"><Award className="w-4 h-4 text-[#C9A15B]" /> Loyalty Program</div>
+            </button>
+
             <button 
               onClick={() => setActiveTab('profile')}
               className={`flex items-center gap-3 px-5 py-4 text-sm font-bold transition-all border-b border-[#EBE4D8] ${
@@ -452,22 +476,34 @@ function AccountDashboard() {
             </div>
           </div>
 
-          {/* MOBILE TABS WRAPPER (Fixes horizontal scroll bleeding) */}
+          {/* MOBILE TABS WRAPPER */}
           <div className="md:hidden flex flex-wrap gap-2 w-full">
             <button 
               onClick={() => setActiveTab('orders')}
-              className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
+              className={`flex-1 min-w-[48%] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
                 activeTab === 'orders' 
                   ? 'bg-[#302832] text-white' 
                   : 'bg-white border border-[#EBE4D8] text-zinc-600'
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5" /> Orders
-              {orders.length > 0 && <span className={`text-[9px] font-mono px-1.5 rounded-full ${activeTab === 'orders' ? 'bg-white/20' : 'bg-zinc-100'}`}>{orders.length}</span>}
             </button>
+
+            {/* LOYALTY TAB BUTTON (Mobile) */}
+            <button 
+              onClick={() => setActiveTab('loyalty')}
+              className={`flex-1 min-w-[48%] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
+                activeTab === 'loyalty' 
+                  ? 'bg-[#302832] text-white' 
+                  : 'bg-white border border-[#EBE4D8] text-zinc-600'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-[#C9A15B]" /> Rewards
+            </button>
+
             <button 
               onClick={() => setActiveTab('profile')}
-              className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
+              className={`flex-1 min-w-[48%] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
                 activeTab === 'profile' 
                   ? 'bg-[#302832] text-white' 
                   : 'bg-white border border-[#EBE4D8] text-zinc-600'
@@ -475,9 +511,10 @@ function AccountDashboard() {
             >
               <User className="w-3.5 h-3.5" /> Profile
             </button>
+            
             <button 
               onClick={() => setActiveTab('privacy')}
-              className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
+              className={`flex-1 min-w-[48%] flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-[11px] font-bold transition-all shadow-sm ${
                 activeTab === 'privacy' 
                   ? 'bg-[#302832] text-white' 
                   : 'bg-white border border-[#EBE4D8] text-zinc-600'
@@ -555,6 +592,77 @@ function AccountDashboard() {
                   </div>
                 ))
               )}
+            </section>
+          )}
+
+          {/* ✨ NEW TAB: LOYALTY HISTORY */}
+          {activeTab === 'loyalty' && (
+            <section className="space-y-4 animate-in fade-in duration-300">
+              {/* Loyalty Header Card */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EBE4D8] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-serif font-bold text-[#4A1F58] flex items-center gap-2">
+                    <Award className="w-5 h-5 text-[#C9A15B]" /> Pavitram Loyalty Program
+                  </h3>
+                  <p className="text-[13px] text-zinc-500 mt-1">Track your points history and recent transactions.</p>
+                </div>
+                <div className="bg-[#FAF7F2] border border-[#EBE4D8] px-5 py-3 rounded-2xl text-center min-w-[140px]">
+                  <p className="text-[10px] font-bold text-[#C9A15B] uppercase tracking-widest mb-1">Available Points</p>
+                  <p className="text-2xl font-black text-[#302832]">{loyalty?.total_points || 0}</p>
+                </div>
+              </div>
+
+              {/* Transactions List */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EBE4D8] shadow-sm">
+                <h4 className="text-[13px] font-bold text-[#302832] mb-4">Points Ledger History</h4>
+                
+                {loyaltyTransactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Sparkles className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                    <p className="text-[13px] text-zinc-500 font-medium">No loyalty transactions found yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {loyaltyTransactions.map(tx => {
+                      const awarded = Number(tx.points_awarded || 0);
+                      const redeemed = Number(tx.points_redeemed || 0);
+                      const isPositive = awarded > 0;
+                      const pointsValue = isPositive ? awarded : redeemed;
+                      const pointsLabel = isPositive ? `+${pointsValue}` : `-${pointsValue}`;
+                      
+                      return (
+                        <div key={tx.id} className="flex items-center justify-between border-b border-zinc-100 pb-4 last:border-0 last:pb-0">
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-[13px] font-bold text-[#302832] capitalize">
+                              {tx.activity_name || tx.activity_category || 'Points Update'}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[11px] text-zinc-500 font-medium">
+                                {new Date(tx.transaction_date || tx.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </p>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                tx.status === 'approved' ? 'bg-[#E5F5EC] text-[#0A7B3E]' : 
+                                tx.status === 'pending' ? 'bg-amber-50 text-amber-600' : 
+                                'bg-rose-50 text-rose-600'
+                              }`}>
+                                {tx.status}
+                              </span>
+                            </div>
+                            {tx.activity_category && (
+                              <p className="text-[10px] text-zinc-400 max-w-[250px] truncate mt-0.5 uppercase tracking-wider">
+                                {tx.activity_category.replace(/_/g, ' ')}
+                              </p>
+                            )}
+                          </div>
+                          <div className={`text-[15px] font-black ${isPositive ? 'text-[#0A7B3E]' : 'text-rose-600'}`}>
+                            {pointsLabel}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
@@ -729,7 +837,7 @@ function AccountDashboard() {
             </section>
           )}
 
-          {/* MOBILE LOGOUT BUTTON (Only visible on mobile since Desktop has it in Sidebar) */}
+          {/* MOBILE LOGOUT BUTTON */}
           <div className="md:hidden flex justify-center pt-6 pb-8">
             <button 
               onClick={handleLogout}

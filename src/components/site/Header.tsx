@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Search, User, Heart, ShoppingBag, ChevronDown, Navigation, Store, ChevronRight, Edit2, Menu, X, ArrowRight, Diamond, Loader2 } from "lucide-react";
+import { Search, User, Heart, ShoppingBag, ChevronDown, Navigation, Store, ChevronRight, Edit2, Menu, X, ArrowRight, Loader2 } from "lucide-react";
 import { Logo } from "./Logo";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,7 +13,6 @@ interface Category {
   model_image_url?: string;
 }
 
-// Reusable logic from Store Locator
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -28,18 +27,15 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
 export function Header() {
   const navigate = useNavigate({ from: '/' });
   
-  // Data States
   const [categories, setCategories] = useState<Category[]>([]);
-  const [storeLocations, setStoreLocations] = useState<any[]>([]); // ✨ ADDED STORE STATE
+  const [storeLocations, setStoreLocations] = useState<any[]>([]); 
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [activeParent, setActiveParent] = useState<Category | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedMobileCat, setExpandedMobileCat] = useState<string | null>(null);
 
-  // Location Pop-up State
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
   const [activeLocationLabel, setActiveLocationLabel] = useState<string | null>(null);
@@ -50,11 +46,8 @@ export function Header() {
   const [hasPromptedLocation, setHasPromptedLocation] = useState(false);
   
   const locationMenuRef = useRef<HTMLDivElement>(null);
-
-  // Add this near your other states in Header.tsx
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Add this useEffect to check for the logged-in user on load and on login
   useEffect(() => {
     const checkUser = () => {
       const storedUser = localStorage.getItem("pavitram_user");
@@ -69,43 +62,11 @@ export function Header() {
       }
     };
 
-    // 1. Check on initial mount
     checkUser();
-
-    // 2. Listen for login/logout events from other components
     window.addEventListener("authStateChange", checkUser);
-
-    // 3. Cleanup listener on unmount
     return () => window.removeEventListener("authStateChange", checkUser);
   }, []);
 
-  // Add this useEffect to check for the logged-in user on load and on login
-  useEffect(() => {
-    const checkUser = () => {
-      const storedUser = localStorage.getItem("pavitram_user");
-      if (storedUser) {
-        try {
-          setCurrentUser(JSON.parse(storedUser));
-        } catch (e) {
-          console.error("Failed to parse user data");
-        }
-      } else {
-        setCurrentUser(null);
-      }
-    };
-
-    // 1. Check on initial mount
-    checkUser();
-
-    // 2. Listen for login/logout events from other components
-    window.addEventListener("authStateChange", checkUser);
-
-    // 3. Cleanup listener on unmount
-    return () => window.removeEventListener("authStateChange", checkUser);
-  }, []);
-
-
-  // Handle clicking outside the location menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (locationMenuRef.current && locationMenuRef.current.contains(event.target as Node)) {
@@ -120,7 +81,6 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle mobile menu scroll locking
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -130,7 +90,6 @@ export function Header() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
-  // ✨ ADDED: Fetch Store Locations from Supabase
   useEffect(() => {
     async function fetchStores() {
       try {
@@ -142,7 +101,6 @@ export function Header() {
         if (error) throw error;
 
         if (data) {
-          // Map the database columns to the lat/lng keys expected by the math function
           const formattedStores = data.map(store => ({
             ...store,
             lat: Number(store.latitude),
@@ -157,7 +115,6 @@ export function Header() {
     fetchStores();
   }, []);
 
-  // Fetch Categories from Supabase
   useEffect(() => {
     const fetchCategories = async () => {
       setIsLoadingCats(true);
@@ -183,7 +140,7 @@ export function Header() {
   const handleLogout = () => {
     localStorage.removeItem("pavitram_user");
     setCurrentUser(null);
-    window.dispatchEvent(new Event("authStateChange")); // Add this
+    window.dispatchEvent(new Event("authStateChange")); 
     navigate({ to: '/' });
   };
 
@@ -298,95 +255,119 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans border-b border-[#E9D8C3]/50 bg-[#FCF9F5]/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans border-b border-[#E9D8C3]/50 bg-[#FFFDF9]">
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      <div className="md:hidden w-full h-1 bg-[#4A1F58]"></div>
+      {/* BACKGROUND LAYERS */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-30" 
+          style={{ backgroundImage: "url('/mandala-pattern-light.png')", backgroundSize: 'cover', backgroundPosition: 'center' }} 
+        />
+        <div 
+          className="absolute top-0 left-0 w-full h-[35px] sm:h-[45px] opacity-70 mix-blend-multiply" 
+          style={{ backgroundImage: "url('/hanging-torans.png')", backgroundRepeat: 'repeat-x', backgroundSize: 'contain', backgroundPosition: 'top left' }} 
+        />
+      </div>
 
-      {/* ✨ 1. MOBILE NAVIGATION BAR */}
-      <div className="md:hidden h-[64px] w-full flex items-center justify-between px-4 relative bg-[#FCF9F5]">
+      {/* ✨ MOBILE NAVIGATION BAR (Restored Sizing and Exact Ordering) */}
+      <div className="md:hidden h-[90px] w-full flex items-center justify-between px-2 sm:px-4 relative z-10 pt-4 overflow-hidden gap-1">
         
-        {/* Left Side: Menu + Horizontal Logo Lockup */}
-        <div className="flex items-center gap-3">
+        {/* Left Side Grouping: Menu + Logos + Dandiyas */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             aria-label="Menu" 
-            className="text-[#302832] hover:text-[#C9A15B] transition-colors shrink-0"
+            className="text-[#302832] hover:text-[#C9A15B] transition-colors shrink-0 p-1"
           >
-            <Menu strokeWidth={1.2} className="w-7 h-7" />
+            <Menu strokeWidth={1.5} className="w-7 h-7 sm:w-8 sm:h-8" />
           </button>
-          
-          <Link to="/" className="flex items-center gap-2 pl-1">
-          <Logo className="h-14 w-auto object-contain shrink-0" />
+
+          <Link to="/" className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
+            {/* 1. Main Logo (INCREASED SIZE) */}
+            <Logo className="h-8 sm:h-[38px] w-auto object-contain shrink-0" />
+            
+            {/* 2. Left Dandiya */}
+            <img src="/dandiya-left.png" alt="" className="h-11 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
+            
+            {/* 3. Text Logo (INCREASED SIZE) */}
             <img 
               src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
               alt="Pavitram Diamond Jewellery" 
-              className="h-8 sm:h-10 w-auto object-contain shrink-0" 
+              className="h-[18px] sm:h-[22px] w-auto object-contain shrink-0" 
             />
+            
+            {/* 4. Right Dandiya (Hides on very narrow phones to preserve the cart pill) */}
+            <img src="/dandiya-right.png" alt="" className="h-11 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0 hidden min-[390px]:block" />
           </Link>
         </div>
 
-        {/* Right Side: Icons */}
-        <div className="flex items-center gap-3.5 shrink-0">
-          <button 
-            onClick={handleLocationMenuClick}
-            className="text-[#302832] hover:text-[#C9A15B] transition-colors location-toggle-btn"
-            aria-label="Find Store"
-          >
-            <Store strokeWidth={1.2} className="w-[22px] h-[22px] pointer-events-none" />
+        {/* Right Side: Floating Action Pill */}
+        <div className="shrink-0 flex items-center gap-2.5 sm:gap-3 bg-white/90 backdrop-blur-md rounded-full shadow-sm border border-[#E9D8C3] px-2.5 py-1.5">
+          <button onClick={handleLocationMenuClick} className="text-[#302832] hover:text-[#C9A15B] transition-colors location-toggle-btn">
+            <Store strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] pointer-events-none" />
           </button>
-          <Link to="/Search" className="text-[#302832] hover:text-[#C9A15B] transition-colors" aria-label="Search">
-            <Search strokeWidth={1.2} className="w-[22px] h-[22px]" />
+          <Link to="/Search" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
+            <Search strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
           </Link>
-          <Link to="/wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors hidden sm:block" aria-label="Wishlist">
-            <Heart strokeWidth={1.2} className="w-[22px] h-[22px]" />
-          </Link>
-          <Link to="/cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative" aria-label="Cart">
-            <ShoppingBag strokeWidth={1.2} className="w-[22px] h-[22px]" />
-            <span className="absolute -top-0.5 -right-1 w-2.5 h-2.5 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
+          <Link to="/cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative">
+            <ShoppingBag strokeWidth={1.5} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+            <span className="absolute -top-0.5 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
           </Link>
         </div>
       </div>
 
-      {/* ✨ 2. DESKTOP NAVIGATION BAR */}
-      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-2 items-center justify-between gap-8">
+      {/* DESKTOP NAVIGATION BAR */}
+      <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-4 items-center justify-between gap-4 relative z-10 h-[100px] pt-6">
         
         <div className="shrink-0 flex items-center">
           <Link to="/" className="flex items-center gap-3">
             <Logo className="h-[46px] w-auto object-contain shrink-0" />
-            
+            <img 
+              src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
+              alt="Pavitram Diamond Jewellery" 
+              className="h-10 w-auto object-contain shrink-0" 
+            />
           </Link>
         </div>
 
-        <div className="flex-1 max-w-[500px] h-10 flex items-center rounded-sm border border-[#E9D8C3] bg-white px-4 hover:border-[#C9A15B] focus-within:border-[#C9A15B] focus-within:shadow-sm transition-all group">
-          <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
-          <input
-            type="search"
-            placeholder="Search for rings, earrings, pendants…"
-            className="ml-3 w-full h-full bg-transparent text-[13px] font-sans outline-none placeholder:text-zinc-400 text-[#302832]"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                navigate({ to: '/Search', search: { q: e.currentTarget.value } as any });
-              }
-            }}
-          />
+        {/* Search Bar Flanked by Dandiya Illustrations */}
+        <div className="flex-1 max-w-[650px] flex items-center gap-2 lg:gap-4 px-4">
+          <img src="/dandiya-left.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
+          
+          <div className="flex-1 h-[42px] flex items-center rounded-md border border-[#E9D8C3] bg-white/95 backdrop-blur-sm px-4 focus-within:border-[#C9A15B] focus-within:shadow-md transition-all shadow-sm group">
+            <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
+            <input
+              type="search"
+              placeholder="Search for festive jewellery, rings, earrings..."
+              className="ml-3 w-full h-full bg-transparent text-[13px] font-sans outline-none placeholder:text-zinc-400 text-[#302832]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  navigate({ to: '/Search', search: { q: e.currentTarget.value } as any });
+                }
+              }}
+            />
+          </div>
+
+          <img src="/dandiya-right.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
         </div>
 
-        <div className="flex items-center gap-6 h-full">
+        <div className="flex items-center gap-6 h-full shrink-0">
           <div className="relative flex h-full items-center">
             <div 
               onClick={handleLocationMenuClick}
-              className="flex h-10 items-center gap-3 cursor-pointer bg-white border border-[#E9D8C3] hover:border-[#C9A15B] hover:shadow-sm px-4 rounded-sm transition-all group location-toggle-btn"
+              className="flex h-[42px] items-center gap-3 cursor-pointer bg-white/95 backdrop-blur-sm border border-[#E9D8C3] hover:border-[#C9A15B] shadow-sm px-4 rounded-md transition-all group location-toggle-btn"
             >
-              <Store strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B] group-hover:text-[#4A1F58] transition-colors pointer-events-none" />
+              <Store strokeWidth={1.5} className="w-4 h-4 text-[#C9A15B] pointer-events-none" />
               <div className="flex flex-col items-start pr-1 justify-center pointer-events-none">
-                <span className="text-[8px] text-zinc-400 font-sans font-bold uppercase tracking-[0.2em] leading-none mb-1">
+                <span className="text-[8px] text-zinc-400 font-sans font-bold uppercase tracking-[0.1em] leading-none mb-1">
                    {nearestStore ? `Store: ${nearestStore.name.split(' ')[0]}` : 'Find a Store'}
                 </span>
-                <span className="text-[10px] font-sans font-bold text-[#4A1F58] flex items-center gap-1.5 leading-none uppercase tracking-[0.15em] group-hover:text-[#C9A15B] transition-colors">
+                <span className="text-[11px] font-sans font-bold text-[#4A1F58] flex items-center gap-1.5 leading-none uppercase tracking-wider group-hover:text-[#C9A15B] transition-colors">
                    {activeLocationLabel ? activeLocationLabel : 'Select Location'} 
                    <Edit2 strokeWidth={2} className="w-2.5 h-2.5 opacity-60" />
                 </span>
@@ -395,48 +376,45 @@ export function Header() {
           </div>
 
           <nav className="flex items-center gap-5">
-          {currentUser ? (
-    <div className="relative group flex items-center cursor-pointer">
-      <span className="text-[12px] font-sans font-bold text-[#4A1F58] uppercase tracking-wider group-hover:text-[#C9A15B] transition-colors">
-        Hi, {currentUser.full_name?.split(' ')[0] || 'User'}
-      </span>
-      
-      {/* Simple Hover Dropdown for Logout */}
-      <div className="absolute top-full right-0 mt-4 w-40 bg-white border border-[#E9D8C3] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all rounded-sm z-50">
-        <div className="flex flex-col py-2">
-          <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Profile</Link>
-          <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Orders</Link>
-          <button onClick={handleLogout} className="text-left px-4 py-2 text-xs font-sans text-rose-600 hover:bg-rose-50 w-full">Sign Out</button>
-        </div>
-      </div>
-    </div>
-  ) : (
-    <Link to="/login" aria-label="Account" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
-      <User strokeWidth={1.5} className="h-[22px] w-[22px]" />
-    </Link>
-  )}
+            {currentUser ? (
+              <div className="relative group flex items-center cursor-pointer">
+                <span className="text-[12px] font-sans font-bold text-[#4A1F58] uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
+                  HI, {currentUser.full_name?.split(' ')[0].toUpperCase() || 'USER'}
+                </span>
+                <div className="absolute top-full right-0 mt-4 w-40 bg-white border border-[#E9D8C3] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all rounded-sm z-50">
+                  <div className="flex flex-col py-2">
+                    <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Profile</Link>
+                    <Link to="/Account" className="px-4 py-2 text-xs font-sans text-zinc-600 hover:bg-[#F7F1E8] hover:text-[#4A1F58]">My Orders</Link>
+                    <button onClick={handleLogout} className="text-left px-4 py-2 text-xs font-sans text-rose-600 hover:bg-rose-50 w-full">Sign Out</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link to="/login" aria-label="Account" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
+                <User strokeWidth={1.5} className="h-6 w-6" />
+              </Link>
+            )}
             <Link to="/wishlist" aria-label="Wishlist" className="text-[#302832] hover:text-[#C9A15B] transition-colors">
               <Heart strokeWidth={1.5} className="h-[22px] w-[22px]" />
             </Link>
             <Link to="/cart" aria-label="Cart" className="text-[#302832] hover:text-[#C9A15B] transition-colors relative">
               <ShoppingBag strokeWidth={1.5} className="h-[22px] w-[22px]" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#C9A15B] rounded-full shadow-[0_0_0_2px_#FCF9F5]" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#C9A15B] rounded-full shadow-sm" />
             </Link>
           </nav>
         </div>
       </div>
 
-      {/* ✨ GLOBAL LOCATION DROPDOWN */}
+      {/* GLOBAL LOCATION DROPDOWN */}
       {isLocationMenuOpen && (
         <div 
           ref={locationMenuRef}
-          className="absolute top-[64px] md:top-[68px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute top-[80px] md:top-[90px] right-2 md:right-8 w-[calc(100vw-16px)] md:w-[340px] bg-white rounded-sm shadow-[0_20px_40px_rgba(74,31,88,0.08)] border border-[#E9D8C3] p-6 md:p-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="text-center mb-6">
-            <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Showroom </h4>
+            <h4 className="text-[#4A1F58] font-serif font-medium text-xl mb-2">Find Your Nearest Showroom</h4>
             <p className="text-xs font-sans text-zinc-500 leading-relaxed">Unlock accurate delivery dates, Try-at-Home availability, and In-store exclusive designs.</p>
           </div>
-
           <div className="flex items-center border-b border-[#E9D8C3] focus-within:border-[#4A1F58] pb-2 mb-6 transition-colors">
              <button onClick={handleLocateMe} className="pr-3 text-zinc-400 hover:text-[#C9A15B] transition-colors" title="Use exact GPS location">
                 <Navigation strokeWidth={1.5} className={`w-4 h-4 ${isLocating ? 'animate-pulse text-[#C9A15B]' : ''}`} />
@@ -458,7 +436,6 @@ export function Header() {
                 {activeLocationLabel ? 'Change' : 'Search'}
              </button>
           </div>
-
           {nearestStore ? (
              <div 
                onClick={() => { setIsLocationMenuOpen(false); navigate({ to: "/stores", search: { q: nearestStore.name } as any }); }}
@@ -495,13 +472,29 @@ export function Header() {
         </div>
       )}
 
-      {/* ✨ 3. DESKTOP CATEGORY NAVIGATION BAR */}
+      {/* DESKTOP CATEGORY NAVIGATION BAR (Purple with Navratri Accents) */}
       <div
-        className="hidden md:block relative bg-[#4A1F58] border-t border-b border-[#4A1F58]"
+        className="hidden md:block relative bg-[#4A1F58] border-t border-b border-[#30103A] z-40"
         onMouseLeave={() => { setIsMenuOpen(false); setActiveParent(null); }}
       >
-       <nav className="mx-auto max-w-[1400px] px-8 h-12 flex items-center justify-start lg:justify-center overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-         <ul className="flex items-center gap-10">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img 
+            src="/mandala-pattern-gold.png" 
+            alt="" 
+            className="absolute left-0 top-0 h-full w-auto object-cover opacity-30 mix-blend-screen pointer-events-none" 
+          />
+          <img 
+            src="/mandala-pattern-gold.png" 
+            alt="" 
+            className="absolute right-0 top-0 h-full w-auto object-cover opacity-30 mix-blend-screen pointer-events-none transform scale-x-[-1]" 
+          />
+        </div>
+
+        <nav className="relative z-10 mx-auto max-w-[1400px] px-8 h-[52px] flex items-center justify-center overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          
+          <img src="/gold-divider.png" alt="" className="h-4 w-auto opacity-90 mr-8 hidden lg:block" />
+
+          <ul className="flex items-center gap-10">
             {topCategories.map((parent) => {
               const hasChildren = categories.some((c) => c.parent_id === parent.id);
               const isSelected = activeParent?.id === parent.id && isMenuOpen;
@@ -514,23 +507,26 @@ export function Header() {
                   <Link
                     to="/category/$slug"
                     params={{ slug: parent.slug }}
-                    className={`whitespace-nowrap flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-[0.15em] uppercase transition-colors h-full pt-[2px] border-b-2 ${
-                      isSelected ? "text-[#C9A15B] border-[#C9A15B]" : "text-white/90 border-transparent hover:text-[#C9A15B]"
+                    className={`whitespace-nowrap flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-[0.15em] uppercase transition-colors h-full border-b-2 ${
+                      isSelected ? "text-white border-white" : "text-white/80 border-transparent hover:text-white"
                     }`}
                   >
                     {parent.name}
-                    {hasChildren && <ChevronDown strokeWidth={2} className={`h-3 w-3 transition-transform ${isSelected ? 'rotate-180 text-[#C9A15B]' : 'text-white/60 group-hover:text-[#C9A15B]'}`} />}
+                    {hasChildren && <ChevronDown strokeWidth={2} className={`h-3 w-3 transition-transform ${isSelected ? 'rotate-180 text-white' : 'text-white/50 group-hover:text-white'}`} />}
                   </Link>
                 </li>
               );
             })}
           </ul>
+
+          <img src="/gold-divider.png" alt="" className="h-4 w-auto opacity-90 ml-8 hidden lg:block" />
         </nav>
 
         {isMenuOpen && activeParent && (
-          <div className="absolute left-0 top-full w-full bg-[#F7F1E8] shadow-[0_20px_40px_rgba(74,31,88,0.06)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 border-t border-[#E9D8C3]" onMouseEnter={() => setIsMenuOpen(true)}>
-            <div className="mx-auto max-w-[1400px] px-12 py-10 grid grid-cols-12 gap-10">
-              <div className="col-span-2 space-y-4 border-r border-[#E9D8C3] pr-6">
+          <div className="absolute left-0 top-full w-full bg-[#FFFDF9] shadow-[0_20px_40px_rgba(74,31,88,0.1)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 border-t border-[#E9D8C3]" onMouseEnter={() => setIsMenuOpen(true)}>
+            <div className="mx-auto max-w-[1400px] px-12 py-10 grid grid-cols-12 gap-10 relative">
+              
+              <div className="col-span-2 space-y-4 border-r border-[#E9D8C3] pr-6 relative z-10">
                 <h4 className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.2em] mb-6">Featured</h4>
                 <ul className="space-y-4 text-xs font-sans font-medium text-zinc-500 tracking-wide">
                   <li><Link to="/category/$slug" params={{ slug: activeParent.slug }} className="hover:text-[#4A1F58] text-[#302832] font-bold block transition-colors">All {activeParent.name}</Link></li>
@@ -539,7 +535,7 @@ export function Header() {
                   <li><Link to="/category/$slug" params={{ slug: activeParent.slug }} className="hover:text-[#4A1F58] block transition-colors">Ready to Ship</Link></li>
                 </ul>
               </div>
-              <div className="col-span-3 space-y-4 border-r border-[#E9D8C3] pr-6">
+              <div className="col-span-3 space-y-4 border-r border-[#E9D8C3] pr-6 relative z-10">
                 <h4 className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.2em] mb-6">Shop By Style</h4>
                 {subCategories.length === 0 ? (
                   <p className="text-xs font-sans text-zinc-400 italic">No styles listed.</p>
@@ -555,7 +551,7 @@ export function Header() {
                   </ul>
                 )}
               </div>
-              <div className="col-span-2 space-y-4 border-r border-[#E9D8C3] pr-6">
+              <div className="col-span-2 space-y-4 border-r border-[#E9D8C3] pr-6 relative z-10">
                 <h4 className="text-[10px] font-sans font-bold text-[#C9A15B] uppercase tracking-[0.2em] mb-6">Shop By Price</h4>
                 <ul className="space-y-4 text-xs font-sans font-medium text-zinc-500 tracking-wide">
                   <li><Link to="/category/$slug" params={{ slug: activeParent.slug }} className="hover:text-[#4A1F58] block transition-colors">Under ₹ 15,000</Link></li>
@@ -564,7 +560,7 @@ export function Header() {
                   <li><Link to="/category/$slug" params={{ slug: activeParent.slug }} className="hover:text-[#4A1F58] block transition-colors">Above ₹ 50,000</Link></li>
                 </ul>
               </div>
-              <div className="col-span-5 grid grid-cols-2 gap-6 pl-4">
+              <div className="col-span-5 grid grid-cols-2 gap-6 pl-4 relative z-10">
                 <Link to="/category/$slug" params={{ slug: activeParent.slug }} onClick={() => setIsMenuOpen(false)} className="group relative rounded-sm overflow-hidden bg-white border border-[#E9D8C3] flex flex-col justify-between aspect-[4/5] shadow-sm hover:shadow-lg transition-all">
                   <div className="w-full h-3/4 overflow-hidden bg-[#F7F1E8]">
                     {activeParent.image_url ? (
@@ -595,20 +591,23 @@ export function Header() {
         )}
       </div>
 
-      {/* ✨ 4. MOBILE SLIDE-OUT DRAWER */}
+      {/* MOBILE SLIDE-OUT DRAWER */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[100] md:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute top-0 left-0 w-[85%] max-w-[340px] h-[100dvh] bg-[#F7F1E8] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+          <div className="absolute top-0 left-0 w-[85%] max-w-[340px] h-[100dvh] bg-[#FFFDF9] shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
             
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-[#E9D8C3] shrink-0 bg-white shadow-sm">
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-[#E9D8C3] shrink-0 bg-white shadow-sm relative overflow-hidden">
+               <div 
+                className="absolute inset-0 opacity-10 pointer-events-none" 
+                style={{ backgroundImage: "url('/mandala-pattern-light.png')", backgroundSize: 'cover' }} 
+              />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-[#4A1F58] hover:text-[#C9A15B] transition-colors -ml-2 relative z-10">
                 <X strokeWidth={2} className="w-6 h-6" />
               </button>
               
-              <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex-1 flex justify-center items-center gap-2">
-                <Logo className="h-10 w-auto object-contain shrink-0" />
+              <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex-1 flex justify-center items-center gap-1.5 px-1 relative z-10">
+                <Logo className="h-8 w-auto object-contain shrink-0" />
                 <img 
                   src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
                   alt="Pavitram Diamond Jewellery" 
@@ -618,9 +617,8 @@ export function Header() {
               <div className="w-10 shrink-0"></div>
             </div>
 
-            {/* Menu Links */}
-            <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col">
-              <div className="py-2 flex-1">
+            <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col relative">
+              <div className="py-2 flex-1 relative z-10">
                 {isLoadingCats ? (
                    <div className="flex justify-center py-10">
                      <Loader2 className="w-6 h-6 animate-spin text-[#C9A15B]" />
@@ -673,8 +671,7 @@ export function Header() {
                 )}
               </div>
 
-              {/* Bottom Cards */}
-              <div className="px-4 py-6 space-y-4 shrink-0 mt-auto">
+              <div className="px-4 py-4 space-y-4 shrink-0 mt-auto relative z-10">
                 <div className="bg-white border border-[#E9D8C3] p-4 rounded-sm shadow-sm relative overflow-hidden" onClick={() => { setIsMobileMenuOpen(false); handleLocationMenuClick(); }}>
                   <div className="relative z-10">
                     <p className="text-xs font-sans text-[#4A1F58] mb-1">Find the nearest store</p>
@@ -687,25 +684,24 @@ export function Header() {
               </div>
             </div>
 
-            {/* Sticky Bottom Actions */}
             <div className="bg-[#4A1F58] p-6 flex flex-col gap-5 text-white shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] relative z-20">
             {currentUser ? (
-    <div className="flex flex-col gap-4 border-b border-white/10 pb-4 mb-1">
-      <span className="text-[12px] font-sans font-bold text-[#C9A15B] uppercase tracking-widest">
-        Welcome back, {currentUser.full_name?.split(' ')[0]}
-      </span>
-      <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
-        My Profile & Orders
-      </Link>
-      <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="text-left text-[15px] font-sans font-medium text-rose-300 hover:text-rose-200 transition-colors">
-        Sign Out
-      </button>
-    </div>
-  ) : (
-    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
-      Log In / Sign Up
-    </Link>
-  )}
+              <div className="flex flex-col gap-4 border-b border-white/10 pb-4 mb-1">
+                <span className="text-[12px] font-sans font-bold text-[#C9A15B] uppercase tracking-widest">
+                  Welcome back, {currentUser.full_name?.split(' ')[0]}
+                </span>
+                <Link to="/Account" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
+                  My Profile & Orders
+                </Link>
+                <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="text-left text-[15px] font-sans font-medium text-rose-300 hover:text-rose-200 transition-colors">
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
+                Log In / Sign Up
+              </Link>
+            )}
                <Link to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-sans font-medium hover:text-[#C9A15B] transition-colors">
                  Wishlist
                </Link>

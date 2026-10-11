@@ -27,7 +27,7 @@ export const getAccountProfileFn = createServerFn({ method: 'POST' })
       throw new Error("Unable to retrieve account details.");
     }
 
-    // Strip everything except the core 10-digit phone number (e.g., +91 9876543210 -> 9876543210)
+    // Strip everything except the core 10-digit phone number
     const cleanPhone = customerData.phone ? customerData.phone.replace(/\D/g, '').slice(-10) : '';
 
     const [profileRes, ordersRes] = await Promise.all([
@@ -69,19 +69,36 @@ export const getAccountProfileFn = createServerFn({ method: 'POST' })
         .limit(1);
 
       if (phoneLoyalty && phoneLoyalty.length > 0) {
-        loyaltyData = phoneLoyalty[0]; // Grab the account that actually has points!
+        loyaltyData = phoneLoyalty[0]; 
       } else {
-         loyaltyData = exactLoyalty; // Fallback
+         loyaltyData = exactLoyalty;
       }
     } else {
       loyaltyData = exactLoyalty;
+    }
+
+    // ✨ STEP 3: Fetch Loyalty Transactions for the new tab (FIXED COLUMN NAMES)
+    let loyaltyTransactions = [];
+    if (loyaltyData?.id) {
+      const { data: txData, error: txError } = await supabaseAdmin
+        .from('loyalty_transactions')
+        .select('*')
+        .eq('account_id', loyaltyData.id) // Corrected from loyalty_account_id
+        .order('transaction_date', { ascending: false }); // Corrected from created_at
+        
+      if (!txError) {
+        loyaltyTransactions = txData || [];
+      } else {
+        console.error("Loyalty Fetch Error:", txError);
+      }
     }
 
     return {
       customer: customerData,
       profile: profileRes.data || null,
       orders: ordersRes.data || [],
-      loyalty: loyaltyData
+      loyalty: loyaltyData,
+      loyaltyTransactions: loyaltyTransactions
     };
   });
 
