@@ -247,6 +247,13 @@ export function Index() {
 
   const whyImage = cmsSections?.why_pavitram?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/section2.webp";
   const harvestImage = cmsSections?.harvesting_plan?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/5-mobile.png";
+  
+  // ✨ FIX: Load Dynamic Points
+  const harvestingPoints = cmsSections?.harvesting_plan?.bullet_points || [
+    { id: "01", title: "Invest Monthly", desc: "Save a fixed amount every month." },
+    { id: "02", title: "Earn Benefits", desc: "Receive your maturity benefit." },
+    { id: "03", title: "Redeem Your Dream", desc: "Use your savings towards jewellery." }
+  ];
 
   return (
     <div className="min-h-screen bg-[#FCF9F5] font-sans text-[#302832] pb-0 relative overflow-hidden">
@@ -615,7 +622,7 @@ export function Index() {
         </div>
       </section>
 
-      {/* SHOP BY PRICE */}
+      {/* ✨ UPDATED: SHOP BY PRICE */}
       <section className="relative w-full pt-12 pb-16 md:pt-16 md:pb-24 overflow-hidden bg-[#FCF9F5]">
         <img 
           src={BG_PATTERN} 
@@ -632,7 +639,6 @@ export function Index() {
           
           <div className="flex flex-col gap-3 md:gap-6">
             {priceCollections[0] && (
-              // ✨ FIX: Passes the exact slug so category.$slug.tsx can catch and parse it
               <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[0]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
                 <img src={priceCollections[0].image_url} loading="lazy" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
                 <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
@@ -688,7 +694,7 @@ export function Index() {
         </div>
       </section>
 
-      {/* PAVITRAM HARVESTING PLAN */}
+      {/* ✨ UPDATED: PAVITRAM HARVESTING PLAN (NOW FULLY DYNAMIC) */}
       <section className="relative w-full bg-[#4A1F58] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 relative">
           
@@ -716,41 +722,19 @@ export function Index() {
             </p>
             
             <div className="flex flex-col gap-5 md:gap-6 mb-10 relative z-10">
-               <div className="flex items-start gap-4 md:gap-5 group">
-                  <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
-                    01
-                  </div>
-                  <div>
-                    <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
-                      Invest Monthly
-                    </h4>
-                    <p className="text-xs font-sans text-white/60 leading-relaxed">Save a fixed amount every month.</p>
-                  </div>
-               </div>
-               
-               <div className="flex items-start gap-4 md:gap-5 group">
-                  <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
-                    02
-                  </div>
-                  <div>
-                    <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
-                      Earn Benefits
-                    </h4>
-                    <p className="text-xs font-sans text-white/60 leading-relaxed">Receive your maturity benefit.</p>
-                  </div>
-               </div>
-
-               <div className="flex items-start gap-4 md:gap-5 group">
-                  <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
-                    03
-                  </div>
-                  <div>
-                    <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
-                      Redeem Your Dream
-                    </h4>
-                    <p className="text-xs font-sans text-white/60 leading-relaxed">Use your savings towards jewellery.</p>
-                  </div>
-               </div>
+               {harvestingPoints.map((point: any, idx: number) => (
+                 <div key={idx} className="flex items-start gap-4 md:gap-5 group">
+                    <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
+                      {point.id}
+                    </div>
+                    <div>
+                      <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
+                        {point.title}
+                      </h4>
+                      <p className="text-xs font-sans text-white/60 leading-relaxed">{point.desc}</p>
+                    </div>
+                 </div>
+               ))}
             </div>
             
             <div className="relative z-10">
@@ -900,7 +884,6 @@ export function Index() {
               </button>
             </div>
 
-            {/* ✨ NEW: View All Stores Link */}
             <div className="mt-6 md:mt-8 flex justify-center">
               <Link 
                 to="/stores" 
