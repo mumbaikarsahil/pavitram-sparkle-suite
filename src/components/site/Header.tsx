@@ -292,7 +292,7 @@ export function Header() {
             <Logo className="h-9 sm:h-[42px] w-auto object-contain shrink-0" />
             
             {/* 2. Left Dandiya */}
-            <img src="/dandiya-left.png" alt="" className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
+            <img src="/Shreeram.png" alt="" className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
             
             {/* 3. Text Logo (Will safely shrink & truncate if running out of space) */}
             <img 
@@ -334,7 +334,7 @@ export function Header() {
 
         {/* Search Bar Flanked by Dandiya Illustrations */}
         <div className="flex-1 max-w-[650px] flex items-center gap-2 lg:gap-4 px-4">
-          <img src="/dandiya-left.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
+          <img src="/Shreeram.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
           
           <div className="flex-1 h-[42px] flex items-center rounded-md border border-[#E9D8C3] bg-white/95 backdrop-blur-sm px-4 focus-within:border-[#C9A15B] focus-within:shadow-md transition-all shadow-sm group">
             <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
@@ -350,7 +350,7 @@ export function Header() {
             />
           </div>
 
-          <img src="/dandiya-right.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
+          <img src="/rawan4.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
         </div>
 
         <div className="flex items-center gap-6 h-full shrink-0">
