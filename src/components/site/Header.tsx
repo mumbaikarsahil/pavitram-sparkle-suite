@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, User, Heart, ShoppingBag, ChevronDown, Navigation, Store, ChevronRight, Edit2, Menu, X, ArrowRight, Loader2 } from "lucide-react";
 import { Logo } from "./Logo";
 import { supabase } from "@/integrations/supabase/client";
+import confetti from "canvas-confetti";
 
 interface Category {
   id: string;
@@ -66,6 +67,69 @@ export function Header() {
     window.addEventListener("authStateChange", checkUser);
     return () => window.removeEventListener("authStateChange", checkUser);
   }, []);
+
+  // 1. Add this reference at the top with your other states/refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // 2. Replace your previous fireworks useEffect with this one
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    // Creates a confetti instance confined strictly to our header canvas
+    const headerConfetti = confetti.create(canvasRef.current, {
+      resize: true,
+      useWorker: true,
+    });
+
+    const duration = 3000; // 3 seconds
+    const end = Date.now() + duration;
+
+    const fire = () => {
+      // Pick a random horizontal spot between 15% and 85% width
+      const x = Math.random() * 0.7 + 0.15; 
+      
+      // PHASE 1: The Rocket (shoots straight up from the bottom)
+      headerConfetti({
+        particleCount: 1,
+        startVelocity: 18,
+        angle: 90,
+        spread: 0,
+        origin: { x, y: 1 }, // y: 1 means bottom of the canvas
+        shapes: ['circle'],
+        scalar: 0.5,
+        colors: ['#ffffff'],
+        ticks: 25, // Short lifespan
+      });
+
+      // PHASE 2: The "Coconut Tree" Burst
+      setTimeout(() => {
+        headerConfetti({
+          particleCount: 45,
+          startVelocity: 12,
+          spread: 360,
+          gravity: 0.8, // Heavy gravity pulls them down like a willow tree
+          decay: 0.91, // Slows them down rapidly in mid-air
+          origin: { x, y: 0.3 }, // Explodes near the top of the header
+          shapes: ['circle'], // Forces round dots instead of square paper
+          scalar: 0.3, // Tiny glowing sparks
+          colors: ['#C9A15B', '#4A1F58', '#ffffff', '#FFD700'],
+          ticks: 80,
+        });
+      }, 180); // Wait 180ms for the rocket to travel up
+    };
+
+    // Fire immediately on load, then stagger more fireworks
+    fire();
+    const interval = setInterval(() => {
+      if (Date.now() > end) {
+        return clearInterval(interval);
+      }
+      fire();
+    }, 450); // New firework every 450ms
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -254,12 +318,18 @@ export function Header() {
     }
   };
 
-  return (
-    <header className="sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans border-b border-[#E9D8C3]/50 bg-[#FFFDF9]">
+ return (
+    <header className="sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 font-sans border-b border-[#E9D8C3]/50 bg-[#FFFDF9] relative">
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
+
+      {/* 🎇 FIREWORKS CANVAS - Confined exactly to header dimensions */}
+      <canvas 
+        ref={canvasRef} 
+        className="absolute inset-0 w-full h-full pointer-events-none z-[100]" 
+      />
 
       {/* BACKGROUND LAYERS */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -267,14 +337,10 @@ export function Header() {
           className="absolute inset-0 opacity-30" 
           style={{ backgroundImage: "url('/mandala-pattern-light.png')", backgroundSize: 'cover', backgroundPosition: 'center' }} 
         />
-        <div 
-          className="absolute top-0 left-0 w-full h-[35px] sm:h-[45px] opacity-70 mix-blend-multiply" 
-          style={{ backgroundImage: "url('/hanging-torans.png')", backgroundRepeat: 'repeat-x', backgroundSize: 'contain', backgroundPosition: 'top left' }} 
-        />
       </div>
 
-      {/* ✨ MOBILE NAVIGATION BAR (Strict gap-3 prevents touching) */}
-      <div className="md:hidden h-[90px] w-full flex items-center justify-between px-2 sm:px-4 relative z-10 pt-4 overflow-hidden gap-3">
+      {/* ✨ MOBILE NAVIGATION BAR */}
+      <div className="md:hidden h-[70px] w-full flex items-center justify-between px-2 sm:px-4 relative z-10 overflow-hidden gap-2">
         
         {/* Left Side Grouping: Menu + Main Logo + Left Dandiya + Text Logo */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 pr-1">
@@ -284,21 +350,22 @@ export function Header() {
             aria-label="Menu" 
             className="text-[#302832] hover:text-[#C9A15B] transition-colors shrink-0 p-1"
           >
-            <Menu strokeWidth={1.5} className="w-7 h-7 sm:w-8 sm:h-8" />
+            {/* Reduced menu icon size to match the right-side pill icons */}
+            <Menu strokeWidth={1.5} className="w-[20px] h-[20px] sm:w-[22px] sm:h-[22px]" />
           </button>
 
           <Link to="/" className="flex items-center gap-1.5 sm:gap-2 shrink min-w-0">
-            {/* 1. Main Logo */}
-            <Logo className="h-9 sm:h-[42px] w-auto object-contain shrink-0" />
+            {/* 1. Main Logo (Bigger) */}
+            <Logo className="h-11 sm:h-[50px] w-auto object-contain shrink-0" />
             
-            {/* 2. Left Dandiya */}
-            <img src="/Shreeram.png" alt="" className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm shrink-0" />
+            {/* 2. Left Dandiya (Smaller than logos) */}
+            <img src="/diya.webp" alt="" className="h-7 sm:h-8 w-auto object-contain drop-shadow-sm shrink-0" />
             
-            {/* 3. Text Logo (Will safely shrink & truncate if running out of space) */}
+            {/* 3. Text Logo (Bigger) */}
             <img 
               src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
               alt="Pavitram Diamond Jewellery" 
-              className="h-[18px] sm:h-[22px] w-auto max-w-[80px] min-[400px]:max-w-none object-contain object-left shrink" 
+              className="h-[24px] sm:h-[28px] w-auto max-w-[90px] min-[400px]:max-w-none object-contain object-left shrink" 
             />
           </Link>
         </div>
@@ -317,7 +384,7 @@ export function Header() {
           </Link>
         </div>
       </div>
-
+      
       {/* DESKTOP NAVIGATION BAR */}
       <div className="hidden md:flex mx-auto max-w-[1400px] px-4 md:px-8 py-4 items-center justify-between gap-4 relative z-10 h-[100px] pt-6">
         
@@ -334,7 +401,7 @@ export function Header() {
 
         {/* Search Bar Flanked by Dandiya Illustrations */}
         <div className="flex-1 max-w-[650px] flex items-center gap-2 lg:gap-4 px-4">
-          <img src="/Shreeram.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
+          <img src="/diya.webp" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
           
           <div className="flex-1 h-[42px] flex items-center rounded-md border border-[#E9D8C3] bg-white/95 backdrop-blur-sm px-4 focus-within:border-[#C9A15B] focus-within:shadow-md transition-all shadow-sm group">
             <Search strokeWidth={1.5} className="h-4 w-4 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors" />
@@ -350,7 +417,7 @@ export function Header() {
             />
           </div>
 
-          <img src="/rawan4.png" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
+          <img src="/diya.webp" alt="" className="h-14 lg:h-16 w-auto object-contain drop-shadow-md" />
         </div>
 
         <div className="flex items-center gap-6 h-full shrink-0">
