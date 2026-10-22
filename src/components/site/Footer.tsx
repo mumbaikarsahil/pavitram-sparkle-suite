@@ -184,7 +184,7 @@ export function Footer() {
                   </li>
                   <li className="flex items-start gap-3">
                     <Mail className="w-4 h-4 text-[#C9A15B] shrink-0 mt-0.5" />
-                    <a href="mailto:info@pavitram.com" className="hover:text-[#C9A15B] transition-colors">info@pavitram.com</a>
+                    <a href="mailto:info@pavitram.co" className="hover:text-[#C9A15B] transition-colors">info@pavitram.co</a>
                   </li>
                 </ul>
 
