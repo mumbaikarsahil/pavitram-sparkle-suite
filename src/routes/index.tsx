@@ -23,6 +23,40 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const BG_PATTERN = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp";
+// Drop this outside of your Index function
+const SmoothImage = ({ src, alt, isPriority }: { src: string, alt: string, isPriority: boolean }) => {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (!src) return;
+    const img = new Image();
+    img.src = src;
+    
+    // The Magic Bullet: Uncompress the image in the background BEFORE showing it
+    img.decode()
+      .then(() => setIsReady(true))
+      .catch(() => setIsReady(true)); // Fallback if browser blocks decode
+  }, [src]);
+
+  return (
+    <>
+      {/* SKELETON: Stays visible until the image is fully decoded in memory */}
+      <div className={`absolute inset-0 bg-[#3A303D] flex items-center justify-center z-0 pointer-events-none transition-opacity duration-500 ${isReady ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+        <Diamond strokeWidth={1} className="w-6 h-6 text-[#C9A15B]/30 animate-pulse" />
+      </div>
+
+      {/* ACTUAL IMAGE: Only renders once it can do so instantly */}
+      <img 
+        src={src} 
+        loading={isPriority ? "eager" : "lazy"}
+        decoding="async"
+        alt={alt}
+        className={`relative z-[1] w-full h-full object-cover transition-all duration-700 ease-out pointer-events-none ${isReady ? 'opacity-90 group-hover:opacity-100 group-hover:scale-[1.05]' : 'opacity-0 scale-100'}`}
+      />
+    </>
+  );
+};
 
 export function Index() {
   const navigate = useNavigate({ from: '/' });
@@ -69,24 +103,108 @@ export function Index() {
     return "all";
   };
 
-  // 1. FAST PATH: Load Above-The-Fold Data Instantly
-  useEffect(() => {
-    const fetchHeroData = async () => {
-      try {
-        const [bannersRes, tickersRes] = await Promise.all([
-          supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order")
-        ]);
-        if (bannersRes.data) setHeroBanners(bannersRes.data);
-        if (tickersRes.data) setTickers(tickersRes.data);
-      } catch (err) {
-        console.error("Error fetching hero data:", err);
-      } finally {
+  
+ // 1. FAST PATH: Load Hero, Tickers & Categories Together + Preload Images
+ useEffect(() => {
+  const fetchInitialData = async () => {
+    try {
+      const [bannersRes, tickersRes, catsRes] = await Promise.all([
+        supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order")
+      ]);
+      
+      if (tickersRes.data) setTickers(tickersRes.data);
+
+      // Immediately set and preload category images in the background
+      if (catsRes.data) {
+        const parentCats = catsRes.data.filter(c => !c.parent_id);
+        setCategories(parentCats);
+        parentCats.forEach((cat) => {
+          if (cat.image_url) {
+            const img = new Image();
+            img.src = cat.image_url;
+          }
+        });
+      }
+
+      if (bannersRes.data && bannersRes.data.length > 0) {
+        const banners = bannersRes.data;
+        setHeroBanners(banners);
+        
+        const isDesktop = window.innerWidth >= 768;
+        const firstUrl = isDesktop ? banners[0].desktop_image_url : banners[0].mobile_image_url;
+
+        const unlockHero = () => {
+          setIsHeroLoading(false);
+          // Preload remaining hero slides silently
+          banners.slice(1).forEach((b) => {
+            const url = isDesktop ? b.desktop_image_url : b.mobile_image_url;
+            if (url) {
+              const bgImg = new Image();
+              bgImg.src = url;
+            }
+          });
+        };
+
+        if (firstUrl) {
+          const img = new Image();
+          img.src = firstUrl;
+          img.onload = unlockHero;
+          img.onerror = unlockHero;
+        } else {
+          setIsHeroLoading(false);
+        }
+      } else {
         setIsHeroLoading(false);
       }
-    };
-    fetchHeroData();
-  }, []);
+    } catch (err) {
+      console.error("Error fetching initial data:", err);
+      setIsHeroLoading(false);
+    }
+  };
+  fetchInitialData();
+}, []);
+
+// 2. SLOW PATH: Load Remaining Below-The-Fold Data
+useEffect(() => {
+  const fetchHeavyContent = async () => {
+    try {
+      const [
+        prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
+      ] = await Promise.all([
+        supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
+        supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_cms_sections").select("*"),
+        supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
+      ]);
+
+      if (prodsRes.data) setPremiumProducts(prodsRes.data);
+      if (promisesRes.data) setPromises(promisesRes.data);
+      if (occRes.data) setOccasions(occRes.data);
+      if (revRes.data) setReviews(revRes.data);
+      if (pricesRes.data) setPriceCollections(pricesRes.data);
+      if (videoRes.data) setExperienceVideos(videoRes.data);
+
+      if (cmsRes.data) {
+        const cmsMap = cmsRes.data.reduce((acc, curr) => {
+          acc[curr.section_key] = curr;
+          return acc;
+        }, {});
+        setCmsSections(cmsMap);
+      }
+    } catch (err) {
+      console.error("Error fetching content data:", err);
+    } finally {
+      setIsContentLoading(false);
+    }
+  };
+  fetchHeavyContent();
+}, []);
+
 
   // 2. SLOW PATH: Load Below-The-Fold Data in Background
   useEffect(() => {
@@ -260,11 +378,14 @@ export function Index() {
       
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
         .animate-marquee { animation: marquee 25s linear infinite; }
+        .animate-shimmer { animation: shimmer 2s infinite ease-in-out; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .font-serif { font-family: 'Cormorant Garamond', serif; }
         .font-sans { font-family: 'DM Sans', sans-serif; }
+        .gpu-accelerated { transform: translate3d(0,0,0); backface-visibility: hidden; will-change: transform; }
       `}} />
 
       {tickers.length > 0 && (
@@ -289,39 +410,65 @@ export function Index() {
         </div>
       )}
 
-      {/* HERO SECTION - LOADED INSTANTLY */}
-      <section className="relative w-full overflow-hidden bg-zinc-900">
+      {/* HERO SECTION - HARDWARE ACCELERATED */}
+      <section className="relative w-full overflow-hidden bg-[#FCF9F5]">
         <div 
-          className="relative w-full h-[75vh] md:h-[60vh] lg:h-[65vh] overflow-hidden group bg-[#E9D8C3]"
+          className="relative w-full h-[75vh] md:h-[60vh] lg:h-[65vh] overflow-hidden group bg-[#F7F1E8]"
           onMouseEnter={() => setIsPaused(true)} 
           onMouseLeave={() => setIsPaused(false)}
         >
           {isHeroLoading ? (
-            <div className="w-full h-full flex items-center justify-center bg-[#E9D8C3]/30 animate-pulse">
-              <Loader2 className="w-8 h-8 text-[#C9A15B] animate-spin opacity-50" />
+            // ✨ LUXURY BRANDED SHIMMER SKELETON (No fake wireframe boxes)
+            <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#F7F1E8] via-[#EFE5D5] to-[#F7F1E8] flex flex-col items-center justify-center">
+              {/* Sweeping Silk Shimmer */}
+              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer pointer-events-none" />
+              
+              {/* Subtle Branded Centerpiece */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full border border-[#C9A15B]/30 flex items-center justify-center mb-3 bg-white/40 backdrop-blur-sm shadow-sm">
+                  <Diamond strokeWidth={1.2} className="w-7 h-7 text-[#C9A15B] animate-pulse" />
+                </div>
+                <span className="text-[10px] font-sans font-bold uppercase tracking-[0.35em] text-[#4A1F58]/50">
+                  Pavitram
+                </span>
+              </div>
+
+              {/* Pagination Dot Placeholders */}
+              <div className="absolute bottom-6 md:bottom-8 flex gap-2">
+                <div className="w-8 h-1.5 rounded-full bg-[#C9A15B]/30" />
+                <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
+                <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
+              </div>
             </div>
           ) : heroBanners.length > 0 ? (
             <>
               <div 
-                className="flex w-full h-full transition-transform duration-700 ease-in-out"
-                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                className="flex w-full h-full transition-transform duration-700 ease-out gpu-accelerated"
+                style={{ transform: `translate3d(-${currentSlide * 100}%, 0, 0)` }}
               >
-                {heroBanners.map((banner) => (
+                {heroBanners.map((banner, index) => (
                   <Link 
                     key={banner.id} 
                     to={banner.link || "/"}
                     preload="intent"
-                    className="w-full h-full shrink-0 relative block"
+                    className="w-full h-full shrink-0 relative block bg-[#F7F1E8]"
+                    style={{ transform: 'translateZ(0)' }}
                   >
                     <img 
                       src={banner.desktop_image_url} 
                       alt="Hero Banner Desktop" 
-                      className="hidden md:block w-full h-full object-cover object-center" 
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                      loading="eager"
+                      decoding="async"
+                      className="hidden md:block w-full h-full object-cover object-center pointer-events-none" 
                     />
                     <img 
                       src={banner.mobile_image_url} 
                       alt="Hero Banner Mobile" 
-                      className="block md:hidden w-full h-full object-cover object-top" 
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                      loading="eager"
+                      decoding="async"
+                      className="block md:hidden w-full h-full object-cover object-top pointer-events-none" 
                     />
                   </Link>
                 ))}
@@ -333,7 +480,7 @@ export function Index() {
                     <button
                       key={index}
                       onClick={() => setCurrentSlide(index)}
-                      className={`h-1.5 md:h-1.5 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 md:w-12 bg-white' : 'w-2 md:w-3 bg-white/50 hover:bg-white/80'}`}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 md:w-12 bg-white shadow-sm' : 'w-2 md:w-3 bg-white/50 hover:bg-white/80'}`}
                     />
                   ))}
                 </div>
@@ -342,6 +489,7 @@ export function Index() {
           ) : null}
         </div>
       </section>
+
 
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden bg-[#4A1F58] py-2.5 border-b border-[#302832] shadow-inner hidden md:flex">
@@ -432,20 +580,15 @@ export function Index() {
                       className={`group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-sm hover:shadow-xl transition-all duration-500 block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`}
                     >
                       {cat.image_url ? (
-                        <img 
-                          src={cat.image_url} 
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.05] transition-all duration-1000 ease-out pointer-events-none" 
-                          alt={cat.name} 
-                        />
+                        // ✨ THIS REPLACES ALL THE MESSY ONLOAD LOGIC
+                        <SmoothImage src={cat.image_url} alt={cat.name} isPriority={idx < 4} />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-[#C9A15B]/50 bg-[#302832]">
                           <Diamond className="w-8 h-8 mb-2 opacity-50" />
                         </div>
                       )}
                       
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500 z-[2]" />
                       
                       <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex flex-col items-center justify-end z-10 pointer-events-none text-center">
                         <div className="flex flex-col items-center transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
