@@ -28,28 +28,36 @@ const SmoothImage = ({ src, alt, isPriority }: { src: string, alt: string, isPri
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!src) return;
+    if (!src || isPriority) return; // Skip JS decode for high-priority eager images
     const img = new Image();
     img.src = src;
-    
-    // The Magic Bullet: Uncompress the image in the background BEFORE showing it
     img.decode()
       .then(() => setIsReady(true))
-      .catch(() => setIsReady(true)); // Fallback if browser blocks decode
-  }, [src]);
+      .catch(() => setIsReady(true));
+  }, [src, isPriority]);
+
+  // ✨ FIX: If it's a priority image, bypass the skeleton completely and force native eager loading
+  if (isPriority) {
+    return (
+      <img 
+        src={src} 
+        loading="eager" 
+        fetchPriority="high"
+        alt={alt} 
+        className="relative z-[1] w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-700 ease-out"
+      />
+    );
+  }
 
   return (
     <>
-      {/* SKELETON: Stays visible until the image is fully decoded in memory */}
       <div className={`absolute inset-0 bg-[#3A303D] flex items-center justify-center z-0 pointer-events-none transition-opacity duration-500 ${isReady ? 'opacity-0' : 'opacity-100'}`}>
         <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
         <Diamond strokeWidth={1} className="w-6 h-6 text-[#C9A15B]/30 animate-pulse" />
       </div>
-
-      {/* ACTUAL IMAGE: Only renders once it can do so instantly */}
       <img 
         src={src} 
-        loading={isPriority ? "eager" : "lazy"}
+        loading="lazy"
         decoding="async"
         alt={alt}
         className={`relative z-[1] w-full h-full object-cover transition-all duration-700 ease-out pointer-events-none ${isReady ? 'opacity-90 group-hover:opacity-100 group-hover:scale-[1.05]' : 'opacity-0 scale-100'}`}
@@ -58,16 +66,18 @@ const SmoothImage = ({ src, alt, isPriority }: { src: string, alt: string, isPri
   );
 };
 
+
 export function Index() {
   const navigate = useNavigate({ from: '/' });
   
   // Decoupled Loading States for Amazon-style progressive rendering
+  // Decoupled Loading States for instant rendering
   const [isHeroLoading, setIsHeroLoading] = useState(true);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true); // ✨ NEW STATE
   const [isContentLoading, setIsContentLoading] = useState(true);
   
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
   const [tickers, setTickers] = useState<any[]>([]);
-  
   const [categories, setCategories] = useState<any[]>([]);
   const [premiumProducts, setPremiumProducts] = useState<any[]>([]);
   const [promises, setPromises] = useState<any[]>([]);
@@ -93,7 +103,6 @@ export function Index() {
   const occasionScrollRef = useRef<HTMLDivElement>(null);
   const storyScrollRef = useRef<HTMLDivElement>(null);
 
-  // ✨ HELPER: Safely extracts the slug from database links for TanStack Router
   const getSafeSlug = (item: any) => {
     if (item?.slug) return item.slug;
     if (item?.link) {
@@ -103,8 +112,7 @@ export function Index() {
     return "all";
   };
 
-  
- // 1. FAST PATH: Load Hero, Tickers & Categories Together + Preload Images
+ // 1. FAST PATH: Instant Load Hero, Tickers & Categories
  useEffect(() => {
   const fetchInitialData = async () => {
     try {
@@ -116,55 +124,88 @@ export function Index() {
       
       if (tickersRes.data) setTickers(tickersRes.data);
 
-      // Immediately set and preload category images in the background
       if (catsRes.data) {
         const parentCats = catsRes.data.filter(c => !c.parent_id);
         setCategories(parentCats);
-        parentCats.forEach((cat) => {
+        
+        // Force browser to eagerly preload top 4 category images
+        parentCats.slice(0, 4).forEach((cat) => {
           if (cat.image_url) {
-            const img = new Image();
-            img.src = cat.image_url;
+            const link = document.createElement('link');
+            link.rel = 'preload';
+            link.as = 'image';
+            link.href = cat.image_url;
+            document.head.appendChild(link);
           }
         });
       }
+      setIsCategoriesLoading(false); // ✨ Categories load instantly now
 
       if (bannersRes.data && bannersRes.data.length > 0) {
-        const banners = bannersRes.data;
-        setHeroBanners(banners);
+        setHeroBanners(bannersRes.data);
         
+        // Force preload the first hero banner
         const isDesktop = window.innerWidth >= 768;
-        const firstUrl = isDesktop ? banners[0].desktop_image_url : banners[0].mobile_image_url;
-
-        const unlockHero = () => {
-          setIsHeroLoading(false);
-          // Preload remaining hero slides silently
-          banners.slice(1).forEach((b) => {
-            const url = isDesktop ? b.desktop_image_url : b.mobile_image_url;
-            if (url) {
-              const bgImg = new Image();
-              bgImg.src = url;
-            }
-          });
-        };
-
+        const firstUrl = isDesktop ? bannersRes.data[0].desktop_image_url : bannersRes.data[0].mobile_image_url;
         if (firstUrl) {
-          const img = new Image();
-          img.src = firstUrl;
-          img.onload = unlockHero;
-          img.onerror = unlockHero;
-        } else {
-          setIsHeroLoading(false);
+          const link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.href = firstUrl;
+          document.head.appendChild(link);
         }
-      } else {
-        setIsHeroLoading(false);
       }
+      
+      // Stop skeleton immediately so browser can render raw image tags
+      setIsHeroLoading(false); 
     } catch (err) {
       console.error("Error fetching initial data:", err);
       setIsHeroLoading(false);
+      setIsCategoriesLoading(false);
     }
   };
   fetchInitialData();
 }, []);
+
+// 2. SLOW PATH: Load Below-The-Fold Data (Removed duplicate category fetch)
+useEffect(() => {
+  const fetchHeavyContent = async () => {
+    try {
+      const [
+        prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
+      ] = await Promise.all([
+        supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
+        supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_cms_sections").select("*"),
+        supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
+      ]);
+
+      if (prodsRes.data) setPremiumProducts(prodsRes.data);
+      if (promisesRes.data) setPromises(promisesRes.data);
+      if (occRes.data) setOccasions(occRes.data);
+      if (revRes.data) setReviews(revRes.data);
+      if (pricesRes.data) setPriceCollections(pricesRes.data);
+      if (videoRes.data) setExperienceVideos(videoRes.data);
+
+      if (cmsRes.data) {
+        const cmsMap = cmsRes.data.reduce((acc, curr) => {
+          acc[curr.section_key] = curr;
+          return acc;
+        }, {});
+        setCmsSections(cmsMap);
+      }
+    } catch (err) {
+      console.error("Error fetching content data:", err);
+    } finally {
+      setIsContentLoading(false);
+    }
+  };
+  fetchHeavyContent();
+}, []);
+
 
 // 2. SLOW PATH: Load Remaining Below-The-Fold Data
 useEffect(() => {
@@ -418,22 +459,19 @@ useEffect(() => {
           onMouseLeave={() => setIsPaused(false)}
         >
           {isHeroLoading ? (
-            // ✨ LUXURY BRANDED SHIMMER SKELETON (No fake wireframe boxes)
+            // ✨ LUXURY BRANDED SHIMMER SKELETON
             <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#F7F1E8] via-[#EFE5D5] to-[#F7F1E8] flex flex-col items-center justify-center">
-              {/* Sweeping Silk Shimmer */}
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer pointer-events-none" />
               
-              {/* Subtle Branded Centerpiece */}
               <div className="relative z-10 flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full border border-[#C9A15B]/30 flex items-center justify-center mb-3 bg-white/40 backdrop-blur-sm shadow-sm">
-                  <Diamond strokeWidth={1.2} className="w-7 h-7 text-[#C9A15B] animate-pulse" />
-                </div>
-                <span className="text-[10px] font-sans font-bold uppercase tracking-[0.35em] text-[#4A1F58]/50">
-                  Pavitram
-                </span>
+                {/* ✨ FIX: Replaced ugly Diamond with the actual logo */}
+                <img 
+                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
+                  alt="Loading Pavitram" 
+                  className="h-14 md:h-16 w-auto object-contain animate-pulse mb-3 opacity-80"
+                />
               </div>
 
-              {/* Pagination Dot Placeholders */}
               <div className="absolute bottom-6 md:bottom-8 flex gap-2">
                 <div className="w-8 h-1.5 rounded-full bg-[#C9A15B]/30" />
                 <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
@@ -533,7 +571,7 @@ useEffect(() => {
           </div>
           
           <div className="w-full">
-            {isContentLoading ? (
+            {isCategoriesLoading ? (
               <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
                 {[...Array(6)].map((_, i) => {
                   const aspectRatios = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];

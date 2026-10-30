@@ -20,6 +20,9 @@ import { MobileBottomNav } from "../components/site/MobileBottomNav";
 import { Toaster } from "../components/ui/sonner";
 import { CartProvider } from '@/context/CartContext';
 
+// ✨ NEW: Import the MetaPixel component
+import { MetaPixel } from "../components/site/MetaPixel"; 
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -87,7 +90,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" },
       
-      // ✨ ADDED: Complete Favicon and App Icon configuration based on your public folder
+      // Complete Favicon and App Icon configuration based on your public folder
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
       { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
@@ -100,7 +103,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Pavitram Diamond Jewellery",
-        // ✨ ADDED: URL and Logo properties specifically required by Google Search
         url: "https://www.pavitramjewellery.com", // Replace with your actual production domain
         logo: "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp",
         slogan: "Timeless Elegance. Crafted for You.",
@@ -143,7 +145,11 @@ function RootComponent() {
   return (
   <CartProvider>
     <QueryClientProvider client={queryClient}>
-      {/* ✨ WRAPPED APP IN PREMIUM SMOOTH SCROLL */}
+      
+      {/* ✨ NEW: Place the MetaPixel here so it mounts once and tracks across all pages */}
+      <MetaPixel />
+
+      {/* WRAPPED APP IN PREMIUM SMOOTH SCROLL */}
       <ReactLenis root options={{ lerp: 0.07, duration: 1.2, smoothWheel: true }}>
         <div className="flex min-h-screen flex-col pb-16 md:pb-0">
           

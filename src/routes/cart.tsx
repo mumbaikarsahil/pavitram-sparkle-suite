@@ -130,6 +130,15 @@ function CartPage() {
 
   // 4. Secure Handoff to Checkout
   const handlePlaceOrder = () => {
+    // ✨ NEW: Fire Meta Pixel InitiateCheckout event
+    if (typeof window !== 'undefined' && window.fbq) {
+      window.fbq('track', 'InitiateCheckout', {
+        value: total,
+        currency: 'INR',
+        num_items: cartItems.length
+      });
+    }
+
     navigate({ 
       to: "/checkout",
       search: { 

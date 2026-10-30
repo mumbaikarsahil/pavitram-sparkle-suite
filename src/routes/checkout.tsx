@@ -279,6 +279,17 @@ function CheckoutPage() {
           const verifyData = await verifyRes.json();
           
           if (verifyData.success) {
+            // ✨ NEW: Fire Meta Pixel Purchase event
+            if (typeof window !== 'undefined' && window.fbq) {
+              window.fbq('track', 'Purchase', {
+                value: total,
+                currency: 'INR',
+                content_ids: cartItems.map(item => item.slug || item.id),
+                content_type: 'product',
+                num_items: cartItems.length
+              });
+            }
+
             clearCart();
             setIsProcessing(false);
             navigate({ to: "/success", search: { order_id: verifyData.orderId } }); 

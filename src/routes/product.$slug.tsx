@@ -60,11 +60,22 @@ export default function ProductPage() {
           .eq("is_live", true)
           .maybeSingle();
 
-        if (prodError) throw prodError;
-        setProduct(prodData);
-
-        if (prodData) {
-          const items: { type: 'image' | 'video', url: string }[] = [];
+          if (prodError) throw prodError;
+          setProduct(prodData);
+  
+          // ✨ NEW: Fire Meta Pixel ViewContent event
+          if (prodData && typeof window !== 'undefined' && window.fbq) {
+            window.fbq('track', 'ViewContent', {
+              content_name: prodData.title,
+              content_ids: [prodData.slug || prodData.id],
+              content_type: 'product',
+              value: Number(prodData.mrp) || 0,
+              currency: 'INR'
+            });
+          }
+  
+          if (prodData) {
+            const items: { type: 'image' | 'video', url: string }[] = [];
           if (prodData.video_url) items.push({ type: 'video', url: prodData.video_url });
           if (prodData.gallery_images && Array.isArray(prodData.gallery_images)) {
             prodData.gallery_images.forEach((img: string) => items.push({ type: 'image', url: img }));
