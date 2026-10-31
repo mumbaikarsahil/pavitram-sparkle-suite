@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { createFileRoute, Link, useNavigate} from "@tanstack/react-router";
-import { toast } from "sonner"; 
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 
-import { 
-  ArrowRight, ShieldCheck, RefreshCw, 
+import {
+  ArrowRight, RefreshCw,
   MapPin, MessageCircle, Navigation, Loader2,
   Diamond, Heart, CheckCircle2, Shield,
   ChevronRight, ChevronLeft, Star,
@@ -23,59 +23,35 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const BG_PATTERN = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp";
-// Drop this outside of your Index function
-const SmoothImage = ({ src, alt, isPriority }: { src: string, alt: string, isPriority: boolean }) => {
-  const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    if (!src || isPriority) return; // Skip JS decode for high-priority eager images
+// ✨ HELPER: Preloads and decodes an image in memory BEFORE removing the skeleton
+const preloadAndDecodeImage = (src: string, timeoutMs = 2500): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!src || typeof window === "undefined") return resolve();
+
+    const timer = setTimeout(resolve, timeoutMs); // Safety fallback so slow 3G never hangs
     const img = new Image();
     img.src = src;
-    img.decode()
-      .then(() => setIsReady(true))
-      .catch(() => setIsReady(true));
-  }, [src, isPriority]);
 
-  // ✨ FIX: If it's a priority image, bypass the skeleton completely and force native eager loading
-  if (isPriority) {
-    return (
-      <img 
-        src={src} 
-        loading="eager" 
-        fetchPriority="high"
-        alt={alt} 
-        className="relative z-[1] w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-700 ease-out"
-      />
-    );
-  }
-
-  return (
-    <>
-      <div className={`absolute inset-0 bg-[#3A303D] flex items-center justify-center z-0 pointer-events-none transition-opacity duration-500 ${isReady ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
-        <Diamond strokeWidth={1} className="w-6 h-6 text-[#C9A15B]/30 animate-pulse" />
-      </div>
-      <img 
-        src={src} 
-        loading="lazy"
-        decoding="async"
-        alt={alt}
-        className={`relative z-[1] w-full h-full object-cover transition-all duration-700 ease-out pointer-events-none ${isReady ? 'opacity-90 group-hover:opacity-100 group-hover:scale-[1.05]' : 'opacity-0 scale-100'}`}
-      />
-    </>
-  );
+    if (img.decode) {
+      img.decode()
+        .then(() => { clearTimeout(timer); resolve(); })
+        .catch(() => { clearTimeout(timer); resolve(); });
+    } else {
+      img.onload = () => { clearTimeout(timer); resolve(); };
+      img.onerror = () => { clearTimeout(timer); resolve(); };
+    }
+  });
 };
-
 
 export function Index() {
   const navigate = useNavigate({ from: '/' });
-  
-  // Decoupled Loading States for Amazon-style progressive rendering
-  // Decoupled Loading States for instant rendering
-  const [isHeroLoading, setIsHeroLoading] = useState(true);
-  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true); // ✨ NEW STATE
+
+  // Unified Above-The-Fold Ready State (Hero + Categories pre-decoded together)
+  const [isTopHalfReady, setIsTopHalfReady] = useState(false);
   const [isContentLoading, setIsContentLoading] = useState(true);
-  
+  const [mountVideos, setMountVideos] = useState(false);
+
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
   const [tickers, setTickers] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -86,11 +62,11 @@ export function Index() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [priceCollections, setPriceCollections] = useState<any[]>([]);
   const [experienceVideos, setExperienceVideos] = useState<any[]>([]);
-  
+
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false); 
+  const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const [activePromiseIndex, setActivePromiseIndex] = useState(0);
   const [activeOccasionIndex, setActiveOccasionIndex] = useState(0);
 
@@ -102,6 +78,7 @@ export function Index() {
   const promiseScrollRef = useRef<HTMLDivElement>(null);
   const occasionScrollRef = useRef<HTMLDivElement>(null);
   const storyScrollRef = useRef<HTMLDivElement>(null);
+  const videoSectionRef = useRef<HTMLElement>(null);
 
   const getSafeSlug = (item: any) => {
     if (item?.slug) return item.slug;
@@ -112,149 +89,59 @@ export function Index() {
     return "all";
   };
 
- // 1. FAST PATH: Instant Load Hero, Tickers & Categories
- useEffect(() => {
-  const fetchInitialData = async () => {
-    try {
-      const [bannersRes, tickersRes, catsRes] = await Promise.all([
-        supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order")
-      ]);
-      
-      if (tickersRes.data) setTickers(tickersRes.data);
-
-      if (catsRes.data) {
-        const parentCats = catsRes.data.filter(c => !c.parent_id);
-        setCategories(parentCats);
-        
-        // Force browser to eagerly preload top 4 category images
-        parentCats.slice(0, 4).forEach((cat) => {
-          if (cat.image_url) {
-            const link = document.createElement('link');
-            link.rel = 'preload';
-            link.as = 'image';
-            link.href = cat.image_url;
-            document.head.appendChild(link);
-          }
-        });
-      }
-      setIsCategoriesLoading(false); // ✨ Categories load instantly now
-
-      if (bannersRes.data && bannersRes.data.length > 0) {
-        setHeroBanners(bannersRes.data);
-        
-        // Force preload the first hero banner
-        const isDesktop = window.innerWidth >= 768;
-        const firstUrl = isDesktop ? bannersRes.data[0].desktop_image_url : bannersRes.data[0].mobile_image_url;
-        if (firstUrl) {
-          const link = document.createElement('link');
-          link.rel = 'preload';
-          link.as = 'image';
-          link.href = firstUrl;
-          document.head.appendChild(link);
-        }
-      }
-      
-      // Stop skeleton immediately so browser can render raw image tags
-      setIsHeroLoading(false); 
-    } catch (err) {
-      console.error("Error fetching initial data:", err);
-      setIsHeroLoading(false);
-      setIsCategoriesLoading(false);
-    }
-  };
-  fetchInitialData();
-}, []);
-
-// 2. SLOW PATH: Load Below-The-Fold Data (Removed duplicate category fetch)
-useEffect(() => {
-  const fetchHeavyContent = async () => {
-    try {
-      const [
-        prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
-      ] = await Promise.all([
-        supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
-        supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_cms_sections").select("*"),
-        supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
-      ]);
-
-      if (prodsRes.data) setPremiumProducts(prodsRes.data);
-      if (promisesRes.data) setPromises(promisesRes.data);
-      if (occRes.data) setOccasions(occRes.data);
-      if (revRes.data) setReviews(revRes.data);
-      if (pricesRes.data) setPriceCollections(pricesRes.data);
-      if (videoRes.data) setExperienceVideos(videoRes.data);
-
-      if (cmsRes.data) {
-        const cmsMap = cmsRes.data.reduce((acc, curr) => {
-          acc[curr.section_key] = curr;
-          return acc;
-        }, {});
-        setCmsSections(cmsMap);
-      }
-    } catch (err) {
-      console.error("Error fetching content data:", err);
-    } finally {
-      setIsContentLoading(false);
-    }
-  };
-  fetchHeavyContent();
-}, []);
-
-
-// 2. SLOW PATH: Load Remaining Below-The-Fold Data
-useEffect(() => {
-  const fetchHeavyContent = async () => {
-    try {
-      const [
-        prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
-      ] = await Promise.all([
-        supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
-        supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_cms_sections").select("*"),
-        supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
-      ]);
-
-      if (prodsRes.data) setPremiumProducts(prodsRes.data);
-      if (promisesRes.data) setPromises(promisesRes.data);
-      if (occRes.data) setOccasions(occRes.data);
-      if (revRes.data) setReviews(revRes.data);
-      if (pricesRes.data) setPriceCollections(pricesRes.data);
-      if (videoRes.data) setExperienceVideos(videoRes.data);
-
-      if (cmsRes.data) {
-        const cmsMap = cmsRes.data.reduce((acc, curr) => {
-          acc[curr.section_key] = curr;
-          return acc;
-        }, {});
-        setCmsSections(cmsMap);
-      }
-    } catch (err) {
-      console.error("Error fetching content data:", err);
-    } finally {
-      setIsContentLoading(false);
-    }
-  };
-  fetchHeavyContent();
-}, []);
-
-
-  // 2. SLOW PATH: Load Below-The-Fold Data in Background
+  // 1. SINGLE UNIFIED FETCH + PRE-DECODE ENGINE
   useEffect(() => {
-    const fetchHeavyContent = async () => {
+    let isMounted = true;
+
+    const loadAllPageResources = async () => {
       try {
+        // Step A: Fetch Hero, Tickers & Categories immediately
+        const [bannersRes, tickersRes, catsRes] = await Promise.all([
+          supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order")
+        ]);
+
+        if (!isMounted) return;
+
+        const banners = bannersRes.data || [];
+        const parentCats = (catsRes.data || []).filter(c => !c.parent_id);
+
+        if (tickersRes.data) setTickers(tickersRes.data);
+        setHeroBanners(banners);
+        setCategories(parentCats);
+
+        // Step B: Collect Hero + ALL Category image URLs and decode them in GPU memory
+        // BEFORE unlocking the skeleton so scrolling is 100% butter-smooth
+        const isDesktop = window.innerWidth >= 768;
+        const criticalUrls: string[] = [];
+
+        if (banners.length > 0) {
+          const firstHeroUrl = isDesktop ? banners[0].desktop_image_url : banners[0].mobile_image_url;
+          if (firstHeroUrl) criticalUrls.push(firstHeroUrl);
+        }
+
+        // Pre-decode ALL category images during the skeleton phase
+        parentCats.forEach(cat => {
+          if (cat.image_url) criticalUrls.push(cat.image_url);
+        });
+
+        await Promise.all(criticalUrls.map(url => preloadAndDecodeImage(url, 2500)));
+
+        if (isMounted) {
+          setIsTopHalfReady(true);
+        }
+
+        // Pre-warm remaining hero slides quietly in background
+        banners.slice(1).forEach(b => {
+          const url = isDesktop ? b.desktop_image_url : b.mobile_image_url;
+          if (url) preloadAndDecodeImage(url, 4000);
+        });
+
+        // Step C: Fetch Below-The-Fold Data in a single clean batch (No duplicates!)
         const [
-          catsRes, prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
+          prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
         ] = await Promise.all([
-          supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order"),
           supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
           supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
           supabase.from("ecommerce_cms_sections").select("*"),
@@ -264,29 +151,67 @@ useEffect(() => {
           supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
         ]);
 
-        if (catsRes.data) setCategories(catsRes.data.filter(c => !c.parent_id));
-        if (prodsRes.data) setPremiumProducts(prodsRes.data);
+        if (!isMounted) return;
+
+        const products = prodsRes.data || [];
+        const prices = pricesRes.data || [];
+        const occs = occRes.data || [];
+
+        setPremiumProducts(products);
         if (promisesRes.data) setPromises(promisesRes.data);
-        if (occRes.data) setOccasions(occRes.data);
+        setOccasions(occs);
         if (revRes.data) setReviews(revRes.data);
-        if (pricesRes.data) setPriceCollections(pricesRes.data);
+        setPriceCollections(prices);
         if (videoRes.data) setExperienceVideos(videoRes.data);
 
         if (cmsRes.data) {
-          const cmsMap = cmsRes.data.reduce((acc, curr) => {
+          const cmsMap = cmsRes.data.reduce((acc: any, curr: any) => {
             acc[curr.section_key] = curr;
             return acc;
           }, {});
           setCmsSections(cmsMap);
         }
+
+        // Pre-decode visible Bestseller & Price cards before revealing lower skeleton
+        const secondaryUrls: string[] = [
+          ...products.slice(0, 6).map(p => p.cover_image_url).filter(Boolean),
+          ...prices.map(p => p.image_url).filter(Boolean),
+          ...occs.slice(0, 4).map(o => o.image_url).filter(Boolean)
+        ];
+
+        await Promise.all(secondaryUrls.map(url => preloadAndDecodeImage(url, 2000)));
+
+        if (isMounted) {
+          setIsContentLoading(false);
+        }
       } catch (err) {
-        console.error("Error fetching content data:", err);
-      } finally {
-        setIsContentLoading(false);
+        console.error("Error loading index data:", err);
+        if (isMounted) {
+          setIsTopHalfReady(true);
+          setIsContentLoading(false);
+        }
       }
     };
-    fetchHeavyContent();
+
+    loadAllPageResources();
+    return () => { isMounted = false; };
   }, []);
+
+  // 2. LAZY-MOUNT YOUTUBE IFRAMES ONLY WHEN USER SCROLLS NEAR THEM
+  useEffect(() => {
+    if (!videoSectionRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setMountVideos(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(videoSectionRef.current);
+    return () => observer.disconnect();
+  }, [experienceVideos.length]);
 
   const handleSubscribe = async () => {
     if (!email || !email.includes("@")) {
@@ -338,7 +263,7 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    if (isPaused || heroBanners.length <= 1) return; 
+    if (isPaused || heroBanners.length <= 1 || !isTopHalfReady) return;
     const startTimer = () => {
       timerRef.current = setTimeout(() => {
         setCurrentSlide((prev) => (prev === heroBanners.length - 1 ? 0 : prev + 1));
@@ -346,7 +271,7 @@ useEffect(() => {
     };
     startTimer();
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [currentSlide, isPaused, heroBanners]); 
+  }, [currentSlide, isPaused, heroBanners, isTopHalfReady]);
 
   useEffect(() => {
     const autoScrollInterval = setInterval(() => {
@@ -406,8 +331,7 @@ useEffect(() => {
 
   const whyImage = cmsSections?.why_pavitram?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/section2.webp";
   const harvestImage = cmsSections?.harvesting_plan?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/5-mobile.png";
-  
-  // ✨ FIX: Load Dynamic Points
+
   const harvestingPoints = cmsSections?.harvesting_plan?.bullet_points || [
     { id: "01", title: "Invest Monthly", desc: "Save a fixed amount every month." },
     { id: "02", title: "Earn Benefits", desc: "Receive your maturity benefit." },
@@ -416,7 +340,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-[#FCF9F5] font-sans text-[#302832] pb-0 relative overflow-hidden">
-      
+
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
         @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
@@ -427,6 +351,11 @@ useEffect(() => {
         .font-serif { font-family: 'Cormorant Garamond', serif; }
         .font-sans { font-family: 'DM Sans', sans-serif; }
         .gpu-accelerated { transform: translate3d(0,0,0); backface-visibility: hidden; will-change: transform; }
+        .bg-pattern-overlay {
+          background-image: url('${BG_PATTERN}');
+          background-size: cover;
+          background-position: center;
+        }
       `}} />
 
       {tickers.length > 0 && (
@@ -451,27 +380,23 @@ useEffect(() => {
         </div>
       )}
 
-      {/* HERO SECTION - HARDWARE ACCELERATED */}
+      {/* HERO SECTION */}
       <section className="relative w-full overflow-hidden bg-[#FCF9F5]">
-        <div 
+        <div
           className="relative w-full h-[75vh] md:h-[60vh] lg:h-[65vh] overflow-hidden group bg-[#F7F1E8]"
-          onMouseEnter={() => setIsPaused(true)} 
+          onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {isHeroLoading ? (
-            // ✨ LUXURY BRANDED SHIMMER SKELETON
+          {!isTopHalfReady ? (
             <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#F7F1E8] via-[#EFE5D5] to-[#F7F1E8] flex flex-col items-center justify-center">
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer pointer-events-none" />
-              
               <div className="relative z-10 flex flex-col items-center">
-                {/* ✨ FIX: Replaced ugly Diamond with the actual logo */}
-                <img 
-                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp" 
-                  alt="Loading Pavitram" 
+                <img
+                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp"
+                  alt="Loading Pavitram"
                   className="h-14 md:h-16 w-auto object-contain animate-pulse mb-3 opacity-80"
                 />
               </div>
-
               <div className="absolute bottom-6 md:bottom-8 flex gap-2">
                 <div className="w-8 h-1.5 rounded-full bg-[#C9A15B]/30" />
                 <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
@@ -480,33 +405,33 @@ useEffect(() => {
             </div>
           ) : heroBanners.length > 0 ? (
             <>
-              <div 
+              <div
                 className="flex w-full h-full transition-transform duration-700 ease-out gpu-accelerated"
                 style={{ transform: `translate3d(-${currentSlide * 100}%, 0, 0)` }}
               >
                 {heroBanners.map((banner, index) => (
-                  <Link 
-                    key={banner.id} 
+                  <Link
+                    key={banner.id}
                     to={banner.link || "/"}
                     preload="intent"
                     className="w-full h-full shrink-0 relative block bg-[#F7F1E8]"
                     style={{ transform: 'translateZ(0)' }}
                   >
-                    <img 
-                      src={banner.desktop_image_url} 
-                      alt="Hero Banner Desktop" 
+                    <img
+                      src={banner.desktop_image_url}
+                      alt="Hero Banner Desktop"
                       fetchPriority={index === 0 ? "high" : "auto"}
                       loading="eager"
                       decoding="async"
-                      className="hidden md:block w-full h-full object-cover object-center pointer-events-none" 
+                      className="hidden md:block w-full h-full object-cover object-center pointer-events-none"
                     />
-                    <img 
-                      src={banner.mobile_image_url} 
-                      alt="Hero Banner Mobile" 
+                    <img
+                      src={banner.mobile_image_url}
+                      alt="Hero Banner Mobile"
                       fetchPriority={index === 0 ? "high" : "auto"}
                       loading="eager"
                       decoding="async"
-                      className="block md:hidden w-full h-full object-cover object-top pointer-events-none" 
+                      className="block md:hidden w-full h-full object-cover object-top pointer-events-none"
                     />
                   </Link>
                 ))}
@@ -527,7 +452,6 @@ useEffect(() => {
           ) : null}
         </div>
       </section>
-
 
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden bg-[#4A1F58] py-2.5 border-b border-[#302832] shadow-inner hidden md:flex">
@@ -550,16 +474,11 @@ useEffect(() => {
           </div>
         </div>
       )}
-      
-      {/* CATEGORY GRID */}
+
+      {/* CATEGORY GRID - ALL IMAGES PRE-DECODED & EAGERLY RENDERED */}
       <section className="relative w-full pt-10 pb-16 md:pt-20 md:pb-24 z-20 overflow-hidden bg-[#FCF9F5]">
-        <img 
-          src={BG_PATTERN} 
-          alt="Decorative Pattern" 
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-        />
-        
+        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
+
         <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col gap-8 md:gap-14 px-4 md:px-8">
           <div className="text-center">
             <h2 className="text-[28px] sm:text-3xl md:text-4xl lg:text-5xl font-serif text-[#302832] leading-tight mb-2 md:mb-3">
@@ -569,22 +488,22 @@ useEffect(() => {
               Explore our most-loved jewellery collections
             </p>
           </div>
-          
+
           <div className="w-full">
-            {isCategoriesLoading ? (
+            {!isTopHalfReady ? (
               <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
                 {[...Array(6)].map((_, i) => {
                   const aspectRatios = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
                   const mobileAspectClass = aspectRatios[i % aspectRatios.length];
                   let desktopGridClass = "";
                   const pattern = i % 7;
-                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";      
-                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2"; 
-                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1"; 
-                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1"; 
+                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
+                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2";
+                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1";
+                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1";
 
                   return (
                     <div key={i} className={`animate-pulse bg-[#E9D8C3]/50 rounded-xl md:rounded-sm block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`} />
@@ -601,39 +520,45 @@ useEffect(() => {
 
                   let desktopGridClass = "";
                   const pattern = idx % 7;
-                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";      
-                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2"; 
-                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1"; 
-                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1"; 
-                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1"; 
+                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
+                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2";
+                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1";
+                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1";
+                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1";
 
                   return (
-                    <Link 
-                      key={cat.id} 
-                      to="/category/$slug" 
-                      params={{ slug: cat.slug }} 
+                    <Link
+                      key={cat.id}
+                      to="/category/$slug"
+                      params={{ slug: cat.slug }}
                       preload="intent"
-                      className={`group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-sm hover:shadow-xl transition-all duration-500 block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`}
+                      className={`group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-sm hover:shadow-xl transition-shadow duration-300 block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass} gpu-accelerated`}
                     >
                       {cat.image_url ? (
-                        // ✨ THIS REPLACES ALL THE MESSY ONLOAD LOGIC
-                        <SmoothImage src={cat.image_url} alt={cat.name} isPriority={idx < 4} />
+                        <img
+                          src={cat.image_url}
+                          alt={cat.name}
+                          loading="eager"
+                          decoding="sync"
+                          fetchPriority={idx < 4 ? "high" : "auto"}
+                          className="relative z-[1] w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.04] transition-transform duration-500 ease-out pointer-events-none"
+                        />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-[#C9A15B]/50 bg-[#302832]">
                           <Diamond className="w-8 h-8 mb-2 opacity-50" />
                         </div>
                       )}
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500 z-[2]" />
-                      
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300 z-[2]" />
+
                       <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex flex-col items-center justify-end z-10 pointer-events-none text-center">
-                        <div className="flex flex-col items-center transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
+                        <div className="flex flex-col items-center transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
                           <h3 className="text-white font-serif font-medium text-lg md:text-3xl tracking-wide drop-shadow-lg leading-tight">
                             {cat.name}
                           </h3>
-                          <div className="hidden md:block w-0 h-[2px] bg-[#C9A15B] mt-2 group-hover:w-12 transition-all duration-500 ease-out opacity-0 group-hover:opacity-100" />
+                          <div className="hidden md:block w-0 h-[2px] bg-[#C9A15B] mt-2 group-hover:w-12 transition-all duration-300 ease-out opacity-0 group-hover:opacity-100" />
                         </div>
                       </div>
                     </Link>
@@ -647,12 +572,7 @@ useEffect(() => {
 
       {/* BESTSELLERS */}
       <section className="relative w-full pt-10 pb-12 md:pt-16 md:pb-16 overflow-hidden bg-white">
-        <img 
-          src={BG_PATTERN} 
-          alt="Decorative Pattern" 
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-        />
+        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-4 border-b border-[#E9D8C3]/60 pb-6">
             <div>
@@ -660,14 +580,14 @@ useEffect(() => {
               <div className="w-16 h-[2px] bg-[#C9A15B] mt-3" />
               <p className="text-xs md:text-sm text-zinc-500 mt-3 font-sans tracking-wide">The most loved designs by our community.</p>
             </div>
-            
+
             <Link to="/category/$slug" params={{ slug: "bestsellers" }} preload="intent"
               className="text-[11px] md:text-xs font-sans font-bold text-[#4A1F58] uppercase tracking-widest hover:text-[#C9A15B] transition-colors flex items-center gap-2"
             >
               Explore All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          
+
           <div className="flex overflow-x-auto hide-scrollbar gap-4 md:gap-8 pb-4 items-stretch w-full">
             {isContentLoading ? (
               <>
@@ -681,8 +601,8 @@ useEffect(() => {
                 ))}
               </>
             ) : premiumProducts.length > 0 ? (
-              premiumProducts.map(product => (
-                <Link 
+              premiumProducts.map((product, idx) => (
+                <Link
                   key={product.id}
                   to="/product/$slug"
                   params={{ slug: product.slug || product.id }}
@@ -691,19 +611,19 @@ useEffect(() => {
                 >
                   <div className="aspect-[4/5] w-full bg-[#F7F1E8] rounded-xl md:rounded-sm overflow-hidden relative shrink-0 mb-3 md:mb-4 border border-[#E9D8C3] shadow-sm group-hover:shadow-md group-hover:border-[#C9A15B] transition-all duration-300">
                     {product.cover_image_url ? (
-                      <img 
-                        src={product.cover_image_url} 
-                        alt={product.title} 
-                        loading="lazy"
+                      <img
+                        src={product.cover_image_url}
+                        alt={product.title}
+                        loading={idx < 6 ? "eager" : "lazy"}
                         decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out mix-blend-multiply" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-[#C9A15B]/40">
                         <Diamond className="w-6 h-6 mb-1 opacity-50" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-[#4A1F58]/0 group-hover:bg-[#4A1F58]/5 transition-colors duration-500" />
+                    <div className="absolute inset-0 bg-[#4A1F58]/0 group-hover:bg-[#4A1F58]/5 transition-colors duration-300" />
                     <div className="absolute top-2 right-2 md:top-3 md:right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Heart className="w-4 h-4 md:w-5 md:h-5 text-zinc-400 hover:text-[#4A1F58]" />
                     </div>
@@ -730,25 +650,20 @@ useEffect(() => {
 
       {/* WHY PAVITRAM */}
       <section className="relative w-full bg-[#FCF9F5] py-10 md:py-16 overflow-hidden border-b border-[#E9D8C3]/50">
-        <img 
-          src={BG_PATTERN} 
-          alt="Decorative Pattern" 
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-        />
+        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
 
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-16">
-            
+
             <div className="w-full lg:w-5/12 relative group px-2 md:px-0">
               <div className="absolute inset-0 translate-x-3 translate-y-3 md:translate-x-4 md:translate-y-4 border border-[#C9A15B]/40 rounded-sm z-0 transition-transform duration-500 group-hover:translate-x-4 group-hover:translate-y-4" />
               <div className="relative z-10 aspect-[4/5] md:aspect-[3/4] overflow-hidden rounded-sm shadow-lg">
-                <img 
-                  src={whyImage} 
-                  loading="lazy"
+                <img
+                  src={whyImage}
+                  loading="eager"
                   decoding="async"
-                  alt="Why Pavitram" 
-                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out" 
+                  alt="Why Pavitram"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
               </div>
             </div>
@@ -767,7 +682,7 @@ useEffect(() => {
               </h2>
 
               <div className="relative w-full">
-                <div 
+                <div
                   ref={promiseScrollRef}
                   onScroll={handlePromiseScroll}
                   className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 md:flex-col md:border-t border-[#E9D8C3]/60 py-2 md:py-0 w-full"
@@ -789,7 +704,7 @@ useEffect(() => {
                     );
                   })}
                 </div>
-                
+
                 {promises.length > 1 && (
                   <div className="flex justify-center gap-1.5 mt-4 md:hidden w-full">
                     {promises.map((_, i) => (
@@ -803,28 +718,23 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* ✨ UPDATED: SHOP BY PRICE */}
+      {/* SHOP BY PRICE */}
       <section className="relative w-full pt-12 pb-16 md:pt-16 md:pb-24 overflow-hidden bg-[#FCF9F5]">
-        <img 
-          src={BG_PATTERN} 
-          alt="Decorative Pattern" 
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-        />
-  
+        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
+
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
           <div className="text-center mb-8 md:mb-14">
             <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58] mb-2">Shop By Price</h2>
             <p className="text-[11px] md:text-sm font-sans text-zinc-500 tracking-[0.15em] uppercase font-medium">Explore our diverse selections</p>
           </div>
-          
+
           <div className="flex flex-col gap-3 md:gap-6">
             {priceCollections[0] && (
-              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[0]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                <img src={priceCollections[0].image_url} loading="lazy" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
-                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[0]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
+                <img src={priceCollections[0].image_url} loading="eager" decoding="async" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
-                  <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
+                  <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
                     <p className="text-[8px] md:text-[11px] font-sans font-bold text-[#E9D8C3] uppercase tracking-[0.2em] mb-1 md:mb-1.5 drop-shadow-md">
                       {priceCollections[0].subtitle}
                     </p>
@@ -838,11 +748,11 @@ useEffect(() => {
 
             <div className="grid grid-cols-2 gap-3 md:gap-6">
               {[priceCollections[1], priceCollections[2]].map((item, idx) => item && (
-                <Link key={idx} to="/category/$slug" params={{ slug: getSafeSlug(item) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] lg:aspect-[5/2] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                  <img src={item.image_url} loading="lazy" alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                <Link key={idx} to="/category/$slug" params={{ slug: getSafeSlug(item) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] lg:aspect-[5/2] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
+                  <img src={item.image_url} loading="eager" decoding="async" alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
-                    <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
+                    <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
                       <p className="text-[7px] md:text-[11px] font-sans font-bold text-[#E9D8C3] uppercase tracking-[0.2em] mb-1 md:mb-1.5 line-clamp-1 drop-shadow-md">
                         {item.subtitle}
                       </p>
@@ -854,13 +764,13 @@ useEffect(() => {
                 </Link>
               ))}
             </div>
-            
+
             {priceCollections[3] && (
-              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[3]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-500">
-                <img src={priceCollections[3].image_url} loading="lazy" alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
-                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+              <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[3]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
+                <img src={priceCollections[3].image_url} loading="eager" decoding="async" alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
-                  <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
+                  <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
                     <p className="text-[8px] md:text-[11px] font-sans font-bold text-[#E9D8C3] uppercase tracking-[0.2em] mb-1 md:mb-1.5 drop-shadow-md">
                       {priceCollections[3].subtitle}
                     </p>
@@ -875,33 +785,34 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* ✨ UPDATED: PAVITRAM HARVESTING PLAN (NOW FULLY DYNAMIC) */}
+      {/* PAVITRAM HARVESTING PLAN */}
       <section className="relative w-full bg-[#4A1F58] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 relative">
-          
+
           <div className="w-full h-[35vh] md:h-[40vh] lg:h-auto relative">
             <div className="lg:absolute lg:inset-0 w-full h-full">
-              <img 
-                src={harvestImage} 
-                loading="lazy"
-                alt="Pavitram Harvesting Plan" 
-                className="w-full h-full object-cover object-top opacity-80" 
+              <img
+                src={harvestImage}
+                loading="eager"
+                decoding="async"
+                alt="Pavitram Harvesting Plan"
+                className="w-full h-full object-cover object-top opacity-80"
               />
               <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-[#4A1F58] via-transparent to-transparent opacity-90" />
             </div>
           </div>
-          
+
           <div className="px-6 py-12 md:px-12 md:py-16 lg:px-16 lg:py-20 xl:px-24 flex flex-col justify-center relative">
             <Diamond className="absolute top-10 right-10 w-64 h-64 text-white opacity-[0.03] pointer-events-none" />
 
             <h2 className="text-3xl md:text-[40px] lg:text-[46px] font-serif font-medium text-white mb-3 md:mb-4 leading-tight relative z-10">
               {cmsSections?.harvesting_plan?.heading || "The Pavitram Harvesting Plan"}
             </h2>
-            
+
             <p className="text-sm md:text-base font-sans text-white/70 leading-relaxed mb-8 md:mb-10 max-w-md relative z-10">
               {cmsSections?.harvesting_plan?.subheading || "Save monthly. Earn more. Bring home your dream jewellery."}
             </p>
-            
+
             <div className="flex flex-col gap-5 md:gap-6 mb-10 relative z-10">
                {harvestingPoints.map((point: any, idx: number) => (
                  <div key={idx} className="flex items-start gap-4 md:gap-5 group">
@@ -917,7 +828,7 @@ useEffect(() => {
                  </div>
                ))}
             </div>
-            
+
             <div className="relative z-10">
               <Link to="/harvesting" preload="intent" className="inline-flex items-center text-[#C9A15B] hover:text-white text-[11px] md:text-xs font-sans font-bold uppercase tracking-[0.2em] transition-colors group">
                 Start Your Plan <ArrowRight className="w-4 h-4 ml-3 group-hover:translate-x-2 transition-transform" />
@@ -927,35 +838,30 @@ useEffect(() => {
           </div>
         </div>
       </section>
-      
+
       {/* SHOP BY OCCASION */}
       {occasions.length > 0 && (
         <section className="relative w-full pt-16 md:pt-24 pb-16 md:pb-24 overflow-hidden bg-[#FCF9F5]">
-          <img 
-            src={BG_PATTERN} 
-            alt="Decorative Floral" 
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-          />
-          
+          <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
+
           <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8">
             <div className="text-center mb-10 md:mb-16">
               <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58]">Shop By Occasion</h2>
               <p className="text-[11px] md:text-sm font-sans text-zinc-500 mt-2 tracking-[0.15em] uppercase font-medium">Explore collections curated for you</p>
               <div className="w-12 h-[1px] bg-[#C9A15B] mx-auto mt-6" />
             </div>
-            
+
             <div className="relative group w-full">
               {occasions.length > 3 && (
                 <>
-                  <button 
+                  <button
                     onClick={() => scrollOccasions('left')}
                     className="hidden md:flex absolute -left-4 lg:-left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all opacity-0 group-hover:opacity-100"
                     aria-label="Scroll left"
                   >
                     <ChevronLeft className="w-6 h-6" strokeWidth={1.5} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => scrollOccasions('right')}
                     className="hidden md:flex absolute -right-4 lg:-right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all opacity-0 group-hover:opacity-100"
                     aria-label="Scroll right"
@@ -965,23 +871,23 @@ useEffect(() => {
                 </>
               )}
 
-              <div 
+              <div
                 ref={occasionScrollRef}
                 onScroll={handleOccasionScroll}
                 className="flex overflow-x-auto hide-scrollbar gap-4 md:gap-6 pb-2 md:pb-6 px-0 snap-x snap-mandatory items-stretch w-full"
               >
                 {occasions.map((occasion, idx) => (
-                  <Link 
+                  <Link
                     key={occasion.id || idx}
-                    to="/category/$slug" 
-                    params={{ slug: occasion.slug }} 
+                    to="/category/$slug"
+                    params={{ slug: occasion.slug }}
                     preload="intent"
-                    className="shrink-0 snap-center w-[280px] md:w-[350px] group relative overflow-hidden bg-[#302832] rounded-xl md:rounded-sm aspect-[4/3] md:aspect-[5/4] shadow-md hover:shadow-xl transition-all duration-500"
+                    className="shrink-0 snap-center w-[280px] md:w-[350px] group relative overflow-hidden bg-[#302832] rounded-xl md:rounded-sm aspect-[4/3] md:aspect-[5/4] shadow-md hover:shadow-xl transition-all duration-300"
                   >
-                    <img src={occasion.image_url} loading="lazy" alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-1000 ease-out" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                    <img src={occasion.image_url} loading="eager" decoding="async" alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                     <div className="absolute bottom-0 left-0 p-8 w-full text-center">
-                      <div className="transform transition-transform duration-500 ease-out group-hover:-translate-y-1">
+                      <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
                         <h2 className="text-2xl md:text-3xl font-serif font-medium text-white mb-2 md:mb-3 drop-shadow-md leading-tight">{occasion.title}</h2>
                         <span className="inline-flex items-center text-[10px] font-sans font-bold text-white uppercase tracking-widest group-hover:text-[#C9A15B] transition-colors">
                           Explore <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -1008,17 +914,18 @@ useEffect(() => {
       {/* ELEGANT STORE LOCATOR */}
       <section className="relative w-full py-16 md:py-28 overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img 
+          <img
             src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/store-front.webp"
-            alt="Pavitram Showroom" 
+            alt="Pavitram Showroom"
             loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-black/20" />
         </div>
-        
+
         <div className="relative z-10 max-w-[1100px] mx-auto px-4 md:px-8">
-          <div className="bg-white/85 backdrop-blur-xl border border-white/50 rounded-xl md:rounded-sm p-6 md:p-16 lg:p-20 text-center shadow-[0_20px_60px_rgba(0,0,0,0.1)]">
+          <div className="bg-white/90 backdrop-blur-md border border-white/50 rounded-xl md:rounded-sm p-6 md:p-16 lg:p-20 text-center shadow-[0_20px_60px_rgba(0,0,0,0.1)]">
             <h2 className="text-3xl md:text-[42px] font-serif font-medium text-[#4A1F58] mb-3 md:mb-6 leading-tight">
               Experience Pavitram <span className="text-[#C9A15B] italic font-light">In-Person</span>
             </h2>
@@ -1031,16 +938,16 @@ useEffect(() => {
                 <div className="pl-4 pr-3 text-zinc-400 group-focus-within:text-[#C9A15B] transition-colors flex items-center justify-center">
                   <MapPin className="w-5 h-5" />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={storeQuery}
                   onChange={(e) => setStoreQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
-                  placeholder="Pin code / City / State" 
+                  placeholder="Pin code / City / State"
                   className="flex-1 h-full py-2 font-sans text-sm outline-none bg-transparent placeholder:text-zinc-400 text-[#302832] w-full"
                 />
-                <button 
-                  onClick={handleStoreSearch} 
+                <button
+                  onClick={handleStoreSearch}
                   title="Search Manually"
                   className="h-full px-4 border-l border-[#E9D8C3] text-[#C9A15B] bg-zinc-50/50 hover:bg-[#F7F1E8] hover:text-[#4A1F58] transition-colors flex items-center justify-center shrink-0"
                 >
@@ -1048,8 +955,8 @@ useEffect(() => {
                 </button>
               </div>
 
-              <button 
-                onClick={handleAutoDetect} 
+              <button
+                onClick={handleAutoDetect}
                 disabled={isLocating}
                 className="w-full md:w-auto h-14 px-8 md:px-10 bg-[#4A1F58] hover:bg-[#302832] disabled:opacity-80 disabled:cursor-not-allowed text-white font-sans text-xs font-bold uppercase tracking-widest transition-colors shrink-0 rounded-xl md:rounded-l-none md:rounded-r-sm shadow-sm flex items-center justify-center gap-2"
               >
@@ -1066,8 +973,8 @@ useEffect(() => {
             </div>
 
             <div className="mt-6 md:mt-8 flex justify-center">
-              <Link 
-                to="/stores" 
+              <Link
+                to="/stores"
                 className="inline-flex items-center text-[11px] font-bold font-sans uppercase tracking-[0.15em] text-[#4A1F58] hover:text-[#C9A15B] transition-colors relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[1px] after:bg-[#C9A15B]/40 hover:after:bg-[#C9A15B] after:transition-colors"
               >
                 Or View All Showrooms Directory
@@ -1078,8 +985,8 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* THE PAVITRAM EXPERIENCE */}
-      <section className="relative w-full pt-8 pb-12 md:py-24 overflow-hidden bg-transparent">
+      {/* THE PAVITRAM EXPERIENCE (YOUTUBE VIDEOS LAZY-MOUNTED) */}
+      <section ref={videoSectionRef} className="relative w-full pt-8 pb-12 md:py-24 overflow-hidden bg-transparent">
         <div className="max-w-[1400px] mx-auto px-0 md:px-8 relative z-10">
           <div className="flex flex-col items-center text-center mb-10 md:mb-16 px-4">
             <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58] mb-3 uppercase tracking-wide">
@@ -1092,14 +999,14 @@ useEffect(() => {
           </div>
 
           <div className="relative group max-w-[1200px] mx-auto">
-            <button 
+            <button
               onClick={() => scrollStories('left')}
               className="hidden md:flex absolute -left-6 lg:-left-12 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all"
               aria-label="Scroll left"
             >
               <ChevronLeft className="w-6 h-6" strokeWidth={1.5} />
             </button>
-            <button 
+            <button
               onClick={() => scrollStories('right')}
               className="hidden md:flex absolute -right-6 lg:-right-12 top-1/2 -translate-y-1/2 w-12 h-12 bg-white border border-[#E9D8C3] rounded-full items-center justify-center text-[#4A1F58] hover:text-white hover:bg-[#4A1F58] hover:border-[#4A1F58] shadow-sm z-10 transition-all"
               aria-label="Scroll right"
@@ -1107,24 +1014,32 @@ useEffect(() => {
               <ChevronRight className="w-6 h-6" strokeWidth={1.5} />
             </button>
 
-            <div 
+            <div
               ref={storyScrollRef}
               className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-[12.5vw] md:px-0"
             >
               {experienceVideos.map((story, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="shrink-0 w-[75vw] md:w-[320px] aspect-[9/16] relative snap-center rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-md border border-[#E9D8C3]/20"
                 >
-                  <iframe
-                    className="absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none" 
-                    src={`https://www.youtube.com/embed/${story.video_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.video_id}&playsinline=1&rel=0&modestbranding=1`}
-                    title={`Pavitram Experience ${index + 1}`}
-                    frameBorder="0"
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                  {mountVideos ? (
+                    <iframe
+                      className="absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none"
+                      src={`https://www.youtube.com/embed/${story.video_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.video_id}&playsinline=1&rel=0&modestbranding=1`}
+                      title={`Pavitram Experience ${index + 1}`}
+                      frameBorder="0"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <img
+                      src={`https://i.ytimg.com/vi/${story.video_id}/hqdefault.jpg`}
+                      alt="Video Preview"
+                      className="w-full h-full object-cover opacity-80"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                   <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col items-center text-center pointer-events-none">
                     <h4 className="font-serif text-white text-lg tracking-[0.15em] drop-shadow-md">PAVITRAM</h4>
@@ -1136,15 +1051,15 @@ useEffect(() => {
               ))}
             </div>
           </div>
-          
+
           <div className="mt-4 flex justify-center md:hidden items-center gap-6">
-            <button 
+            <button
               onClick={() => scrollStories('left')}
               className="w-10 h-10 bg-white border border-[#E9D8C3] rounded-full flex items-center justify-center text-[#4A1F58] hover:bg-[#F7F1E8] shadow-sm transition-colors"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={1.5} />
             </button>
-            <button 
+            <button
               onClick={() => scrollStories('right')}
               className="w-10 h-10 bg-white border border-[#E9D8C3] rounded-full flex items-center justify-center text-[#4A1F58] hover:bg-[#F7F1E8] shadow-sm transition-colors"
             >
@@ -1168,7 +1083,7 @@ useEffect(() => {
                 Client Stories
               </h2>
               <div className="flex items-center justify-center gap-2 text-sm font-sans text-zinc-600">
-                 <span className="font-bold text-black">4.9/5</span> rating on 
+                 <span className="font-bold text-black">4.9/5</span> rating on
                  <svg className="w-14 h-auto ml-1" viewBox="0 0 92 30" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.5 23.3C5.2 23.3 0 18.1 0 11.6C0 5.1 5.2 0 11.5 0C14.9 0 17.5 1.3 19.4 3L17.2 5.1C15.9 3.9 14.1 3 11.5 3C7 3 3.4 6.6 3.4 11.6C3.4 16.6 7 20.3 11.5 20.3C14.6 20.3 16.3 19 17.4 18C18.3 17.1 18.9 15.8 19.1 13.9H11.5V11H22.1C22.2 11.6 22.3 13C22.3 15.5 21.6 18.5 19.5 20.7C17.5 22.8 14.9 23.3 11.5 23.3Z" fill="#4285F4"/>
                     <path d="M34.5 15.8C34.5 20.2 31 23.3 26.9 23.3C22.8 23.3 19.3 20.2 19.3 15.8C19.3 11.4 22.8 8.3 26.9 8.3C31 8.3 34.5 11.4 34.5 15.8ZM31.3 15.8C31.3 12.5 29.2 10.3 26.9 10.3C24.6 10.3 22.5 12.5 22.5 15.8C22.5 19.1 24.6 21.3 26.9 21.3C29.2 21.3 31.3 19.1 31.3 15.8Z" fill="#EA4335"/>
@@ -1182,8 +1097,8 @@ useEffect(() => {
 
             <div className="flex overflow-x-auto hide-scrollbar gap-4 md:gap-6 pb-6 px-4 md:px-0 snap-x snap-mandatory">
               {reviews.map((review) => (
-                <div 
-                  key={review.id} 
+                <div
+                  key={review.id}
                   className="shrink-0 w-[280px] md:w-[350px] bg-white border border-zinc-200 rounded-xl p-6 snap-center shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-shadow flex flex-col justify-between"
                 >
                   <div>
@@ -1222,12 +1137,7 @@ useEffect(() => {
 
       {/* NEWSLETTER CAPTURE */}
       <section className="relative w-full pt-12 pb-16 md:py-24 overflow-hidden bg-[#F7F1E8] border-t border-[#E9D8C3]/50">
-        <img 
-          src={BG_PATTERN} 
-          alt="Decorative Floral" 
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.1] pointer-events-none mix-blend-multiply z-0"
-        />
+        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
 
         <div className="relative z-10 max-w-2xl mx-auto px-4 text-center flex flex-col items-center">
           <h2 className="text-3xl md:text-[42px] font-serif text-[#4A1F58] mb-4 tracking-wide leading-tight">
@@ -1236,17 +1146,17 @@ useEffect(() => {
           <p className="text-sm md:text-base font-sans text-zinc-600 mb-8 md:mb-12 max-w-sm leading-relaxed">
             Be the first to discover new collections, exclusive offers and jewellery stories.
           </p>
-          
+
           <div className="flex w-full max-w-md mx-auto items-stretch h-12 md:h-14 shadow-[0_4px_20px_rgba(0,0,0,0.03)] group mb-10 md:mb-12">
-            <input 
-              type="email" 
+            <input
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
-              placeholder="Enter your email address" 
+              placeholder="Enter your email address"
               className="flex-1 px-5 font-sans text-sm outline-none border border-r-0 border-[#E9D8C3] focus:border-[#C9A15B] rounded-l-xl md:rounded-l-sm bg-white text-[#302832] placeholder:text-zinc-400 transition-colors"
             />
-            <button 
+            <button
               onClick={handleSubscribe}
               disabled={isSubscribing}
               className="px-8 md:px-10 bg-[#4A1F58] hover:bg-[#302832] disabled:bg-slate-400 text-white font-sans text-[11px] font-bold uppercase tracking-widest transition-colors flex-shrink-0 rounded-r-xl md:rounded-r-sm"
@@ -1254,13 +1164,13 @@ useEffect(() => {
               {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Subscribe"}
             </button>
           </div>
-          
+
           <div className="pt-8 border-t border-[#E9D8C3]/60 w-full max-w-xs mx-auto flex flex-col items-center justify-center gap-5">
              <div>
                 <h3 className="text-sm font-serif font-medium text-[#4A1F58] mb-1">Prefer to chat?</h3>
                 <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">Connect with our stylists</p>
              </div>
-             <a 
+             <a
                href="https://wa.me/918356834764?text=Hi!%20I%20want%20to%20know%20more%20about%20Pavitram%20Jewelry."
                target="_blank"
                rel="noopener noreferrer"
@@ -1273,7 +1183,7 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* 12. CSS TICKER */}
+      {/* CSS TICKER */}
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden whitespace-nowrap py-2.5 border-t border-[#E9D8C3] bg-white flex items-center">
           <div className="inline-block animate-marquee flex-nowrap flex items-center">
@@ -1287,7 +1197,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-  
+
       <FloatingHelp />
 
     </div>
