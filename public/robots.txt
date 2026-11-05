@@ -1,4 +1,9 @@
+# 1. Googlebot Specific Rules
 User-agent: Googlebot
+Disallow: /assets/
+Disallow: /products/detail/
+Disallow: /shopping/product/detail/
+Disallow: /wp-
 Allow: /favicon.ico
 Allow: /favicon-32x32.png
 Allow: /favicon-16x16.png
@@ -6,6 +11,7 @@ Allow: /apple-touch-icon.png
 Allow: /android-chrome-192x192.png
 Allow: /android-chrome-512x512.png
 
+# 2. Google Image Bot
 User-agent: Googlebot-Image
 Allow: /favicon.ico
 Allow: /favicon-32x32.png
@@ -14,32 +20,36 @@ Allow: /apple-touch-icon.png
 Allow: /android-chrome-192x192.png
 Allow: /android-chrome-512x512.png
 
-# Allow ChatGPT search citations and live user fetching
+# 3. AI Search Bots & Citations
 User-agent: OAI-SearchBot
 Allow: /
+
 User-agent: ChatGPT-User
 Allow: /
 
-# Allow Perplexity AI citations
 User-agent: PerplexityBot
 Allow: /
+
 User-agent: Perplexity-User
 Allow: /
 
-# Allow Claude citations and live user fetching
 User-agent: Claude-SearchBot
 Allow: /
+
 User-agent: Claude-User
 Allow: /
 
-# Allow Google Gemini grounding
 User-agent: Google-Extended
 Allow: /
 
+# 4. Catch-all for all other crawlers (Bing, Yahoo, Ahrefs, etc.)
 User-agent: *
 Disallow: /wp-admin/
 Disallow: /wp-content/
 Disallow: /wp-includes/
+Disallow: /wp-
 Disallow: /products/detail/
+Disallow: /shopping/product/detail/
+Crawl-delay: 5
 
 Sitemap: https://www.pavitram.co/sitemap.xml
