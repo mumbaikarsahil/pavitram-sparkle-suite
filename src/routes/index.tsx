@@ -602,7 +602,7 @@ export function Index() {
         </div>
       )}
 
-      {/* CATEGORY GRID - ZERO-REFLOW, GPU-ISOLATED */}
+     {/* CATEGORY GRID - ORIGINAL MOBILE MASONRY + DESKTOP BENTO */}
 <section className="relative w-full pt-10 pb-16 md:pt-20 md:pb-24 z-20 bg-[#FCF9F5]">
   <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col gap-8 md:gap-14 px-4 md:px-8">
     <div className="text-center">
@@ -618,8 +618,17 @@ export function Index() {
       {categories.length === 0 ? (
         <div className="text-center py-10 text-sm text-zinc-400">No categories found.</div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 w-full md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
+        <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
           {categories.map((cat, idx) => {
+            const aspectRatios = [
+              "aspect-[4/5]",
+              "aspect-square",
+              "aspect-[3/4]",
+              "aspect-square",
+              "aspect-[2/3]",
+            ];
+            const mobileAspectClass = aspectRatios[idx % aspectRatios.length];
+
             let desktopGridClass = "";
             const pattern = idx % 7;
             if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
@@ -636,7 +645,7 @@ export function Index() {
                 to="/category/$slug"
                 params={{ slug: cat.slug }}
                 preload="intent"
-                className={`card-contain group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] block w-full aspect-[4/5] md:aspect-auto md:h-full ${desktopGridClass}`}
+                className={`card-contain group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`}
               >
                 {cat.image_url ? (
                   <img
