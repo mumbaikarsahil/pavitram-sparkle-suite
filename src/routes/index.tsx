@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { Logo } from "@/components/site/Logo";
+
 
 import {
   ArrowRight, RefreshCw,
@@ -22,35 +24,100 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Gem, Heart, RefreshCw, Diamond, Shield, CheckCircle2, Star, Gift, Calendar, Infinity
 };
 
+const PAVITRAM_LOGO = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp";
 const BG_PATTERN = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/bg_pattern2.webp";
+const DEFAULT_WHY_IMAGE = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/section2.webp";
+const DEFAULT_HARVEST_IMAGE = "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/5-mobile.png";
 
-// ✨ HELPER: Preloads and decodes an image in memory BEFORE removing the skeleton
-const preloadAndDecodeImage = (src: string, timeoutMs = 2500): Promise<void> => {
+// Keep strong references to preloaded images until splash completes so GPU doesn't evict decoded bitmaps
+const imageCache = new Set<HTMLImageElement>();
+
+const preloadAndDecode = (src: string, timeoutMs = 3000): Promise<void> => {
   return new Promise((resolve) => {
     if (!src || typeof window === "undefined") return resolve();
 
-    const timer = setTimeout(resolve, timeoutMs); // Safety fallback so slow 3G never hangs
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      }
+    };
+
+    const timer = setTimeout(finish, timeoutMs);
     const img = new Image();
+    img.decoding = "async";
     img.src = src;
+    imageCache.add(img);
 
     if (img.decode) {
-      img.decode()
-        .then(() => { clearTimeout(timer); resolve(); })
-        .catch(() => { clearTimeout(timer); resolve(); });
+      img.decode().then(finish).catch(finish);
     } else {
-      img.onload = () => { clearTimeout(timer); resolve(); };
-      img.onerror = () => { clearTimeout(timer); resolve(); };
+      img.onload = finish;
+      img.onerror = finish;
     }
   });
 };
 
+// Dedicated smooth YouTube card: preloaded thumbnail underneath + fade-in iframe once ready
+function ExperienceVideoCard({
+  videoId,
+  index,
+  shouldMount,
+}: {
+  videoId: string;
+  index: number;
+  shouldMount: boolean;
+}) {
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  return (
+    <div className="shrink-0 w-[75vw] md:w-[320px] aspect-[9/16] relative snap-center rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-md border border-[#E9D8C3]/20">
+      {/* Crisp thumbnail always visible underneath so there is never a black flash */}
+      <img
+        src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+        alt={`Pavitram Experience ${index + 1}`}
+        loading="eager"
+        decoding="async"
+        className="w-full h-full object-cover opacity-90"
+      />
+
+      {shouldMount && (
+        <iframe
+          onLoad={() => setIframeLoaded(true)}
+          className={`absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none transition-opacity duration-700 ${
+            iframeLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&modestbranding=1`}
+          title={`Pavitram Experience ${index + 1}`}
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col items-center text-center pointer-events-none">
+        <h4 className="font-serif text-white text-lg tracking-[0.15em] drop-shadow-md">PAVITRAM</h4>
+        <p className="text-[10px] md:text-[11px] font-sans text-white font-bold px-4 py-1">
+          Diamond Jewellery
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function Index() {
   const navigate = useNavigate({ from: '/' });
 
-  // Unified Above-The-Fold Ready State (Hero + Categories pre-decoded together)
-  const [isTopHalfReady, setIsTopHalfReady] = useState(false);
-  const [isContentLoading, setIsContentLoading] = useState(true);
-  const [mountVideos, setMountVideos] = useState(false);
+  // Full-Screen Luxury Preloader States
+  const [loadProgress, setLoadProgress] = useState(12);
+  const [isPageReady, setIsPageReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Staggered YouTube mount count (mounts 1 video every 450ms quietly after splash fades)
+  const [mountedVideoCount, setMountedVideoCount] = useState(0);
 
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
   const [tickers, setTickers] = useState<any[]>([]);
@@ -78,7 +145,6 @@ export function Index() {
   const promiseScrollRef = useRef<HTMLDivElement>(null);
   const occasionScrollRef = useRef<HTMLDivElement>(null);
   const storyScrollRef = useRef<HTMLDivElement>(null);
-  const videoSectionRef = useRef<HTMLElement>(null);
 
   const getSafeSlug = (item: any) => {
     if (item?.slug) return item.slug;
@@ -89,30 +155,78 @@ export function Index() {
     return "all";
   };
 
-  // 1. SINGLE UNIFIED FETCH + PRE-DECODE ENGINE
+  // Lock body scroll while the full-screen Pavitram preloader is active
+  useEffect(() => {
+    if (showSplash) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showSplash]);
+
+  // 1. SINGLE PARALLEL FETCH + REAL ASSET PRELOAD ENGINE
   useEffect(() => {
     let isMounted = true;
+    const startTime = Date.now();
 
     const loadAllPageResources = async () => {
       try {
-        // Step A: Fetch Hero, Tickers & Categories immediately
-        const [bannersRes, tickersRes, catsRes] = await Promise.all([
+        // Fetch ALL homepage data in a single parallel batch (zero waterfall)
+        const [
+          bannersRes,
+          tickersRes,
+          catsRes,
+          prodsRes,
+          promisesRes,
+          cmsRes,
+          occRes,
+          revRes,
+          pricesRes,
+          videoRes
+        ] = await Promise.all([
           supabase.from("ecommerce_banners").select("*").eq("is_active", true).order("sort_order"),
           supabase.from("ecommerce_highlight_ticker").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order")
+          supabase.from("ecommerce_categories").select("id, name, slug, image_url, parent_id").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
+          supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_cms_sections").select("*"),
+          supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
+          supabase.from("ecommerce_experience_videos").select("video_id").eq("is_active", true).order("sort_order", { ascending: true })
         ]);
 
         if (!isMounted) return;
+        setLoadProgress(35);
 
         const banners = bannersRes.data || [];
         const parentCats = (catsRes.data || []).filter(c => !c.parent_id);
+        const products = prodsRes.data || [];
+        const prices = pricesRes.data || [];
+        const occs = occRes.data || [];
+        const videos = videoRes.data || [];
 
-        if (tickersRes.data) setTickers(tickersRes.data);
+        const cmsMap = (cmsRes.data || []).reduce((acc: any, curr: any) => {
+          acc[curr.section_key] = curr;
+          return acc;
+        }, {});
+
+        // Mount full DOM immediately *underneath* the splash curtain
         setHeroBanners(banners);
+        if (tickersRes.data) setTickers(tickersRes.data);
         setCategories(parentCats);
+        setPremiumProducts(products);
+        if (promisesRes.data) setPromises(promisesRes.data);
+        setCmsSections(cmsMap);
+        setOccasions(occs);
+        if (revRes.data) setReviews(revRes.data);
+        setPriceCollections(prices);
+        setExperienceVideos(videos);
 
-        // Step B: Collect Hero + ALL Category image URLs and decode them in GPU memory
-        // BEFORE unlocking the skeleton so scrolling is 100% butter-smooth
+        // Collect all critical above-the-fold + mid-page images for pre-decoding
         const isDesktop = window.innerWidth >= 768;
         const criticalUrls: string[] = [];
 
@@ -121,74 +235,72 @@ export function Index() {
           if (firstHeroUrl) criticalUrls.push(firstHeroUrl);
         }
 
-        // Pre-decode ALL category images during the skeleton phase
-        parentCats.forEach(cat => {
-          if (cat.image_url) criticalUrls.push(cat.image_url);
+        // All Category images + first 5 Bestsellers + Why Pavitram + YouTube thumbnails
+        parentCats.forEach(cat => { if (cat.image_url) criticalUrls.push(cat.image_url); });
+        products.slice(0, 5).forEach(p => { if (p.cover_image_url) criticalUrls.push(p.cover_image_url); });
+        criticalUrls.push(cmsMap?.why_pavitram?.image_url || DEFAULT_WHY_IMAGE);
+        videos.forEach(v => {
+          if (v.video_id) criticalUrls.push(`https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg`);
         });
 
-        await Promise.all(criticalUrls.map(url => preloadAndDecodeImage(url, 2500)));
+        const uniqueUrls = Array.from(new Set(criticalUrls.filter(Boolean)));
+        let completed = 0;
 
-        if (isMounted) {
-          setIsTopHalfReady(true);
-        }
+        // Decode critical images in parallel while updating the luxury progress bar
+        const decodeAll = Promise.all(
+          uniqueUrls.map(url =>
+            preloadAndDecode(url, 3200).then(() => {
+              completed += 1;
+              if (isMounted) {
+                const pct = 35 + Math.round((completed / Math.max(uniqueUrls.length, 1)) * 60);
+                setLoadProgress(Math.min(pct, 95));
+              }
+            })
+          )
+        );
 
-        // Pre-warm remaining hero slides quietly in background
-        banners.slice(1).forEach(b => {
-          const url = isDesktop ? b.desktop_image_url : b.mobile_image_url;
-          if (url) preloadAndDecodeImage(url, 4000);
-        });
-
-        // Step C: Fetch Below-The-Fold Data in a single clean batch (No duplicates!)
-        const [
-          prodsRes, promisesRes, cmsRes, occRes, revRes, pricesRes, videoRes
-        ] = await Promise.all([
-          supabase.from("ecommerce_products").select("id, title, slug, mrp, cover_image_url, category:ecommerce_categories(name)").eq("is_live", true).eq("is_bestseller", true).limit(15),
-          supabase.from("ecommerce_promises").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_cms_sections").select("*"),
-          supabase.from("ecommerce_occasions").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_client_reviews").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from("ecommerce_price_collections").select("*").eq("is_active", true).order("sort_order"),
-          supabase.from('ecommerce_experience_videos').select('video_id').eq('is_active', true).order('sort_order', { ascending: true })
-        ]);
+        // Hard cap at 4.2s so slow mobile networks never get trapped on the splash screen
+        const maxWait = new Promise<void>(resolve => setTimeout(resolve, 4200));
+        await Promise.race([decodeAll, maxWait]);
 
         if (!isMounted) return;
 
-        const products = prodsRes.data || [];
-        const prices = pricesRes.data || [];
-        const occs = occRes.data || [];
-
-        setPremiumProducts(products);
-        if (promisesRes.data) setPromises(promisesRes.data);
-        setOccasions(occs);
-        if (revRes.data) setReviews(revRes.data);
-        setPriceCollections(prices);
-        if (videoRes.data) setExperienceVideos(videoRes.data);
-
-        if (cmsRes.data) {
-          const cmsMap = cmsRes.data.reduce((acc: any, curr: any) => {
-            acc[curr.section_key] = curr;
-            return acc;
-          }, {});
-          setCmsSections(cmsMap);
+        // Ensure at least 550ms display time so the logo animation feels intentional and smooth
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 550) {
+          await new Promise(resolve => setTimeout(resolve, 550 - elapsed));
         }
 
-        // Pre-decode visible Bestseller & Price cards before revealing lower skeleton
-        const secondaryUrls: string[] = [
-          ...products.slice(0, 6).map(p => p.cover_image_url).filter(Boolean),
-          ...prices.map(p => p.image_url).filter(Boolean),
-          ...occs.slice(0, 4).map(o => o.image_url).filter(Boolean)
-        ];
+        if (!isMounted) return;
+        setLoadProgress(100);
 
-        await Promise.all(secondaryUrls.map(url => preloadAndDecodeImage(url, 2000)));
+        // Let browser paint one clean frame before lifting the curtain
+        requestAnimationFrame(() => {
+          if (!isMounted) return;
+          setIsPageReady(true);
+          setTimeout(() => {
+            if (isMounted) {
+              setShowSplash(false);
+              imageCache.clear(); // Release cache refs once DOM holds the images
+            }
+          }, 650);
+        });
 
-        if (isMounted) {
-          setIsContentLoading(false);
-        }
+        // Quietly warm secondary images (remaining banners, price cards, occasions) in background
+        const backgroundUrls = [
+          ...banners.slice(1).map(b => (isDesktop ? b.desktop_image_url : b.mobile_image_url)),
+          ...prices.map(p => p.image_url),
+          ...occs.map(o => o.image_url),
+          cmsMap?.harvesting_plan?.image_url || DEFAULT_HARVEST_IMAGE,
+        ].filter(Boolean);
+
+        backgroundUrls.forEach(url => preloadAndDecode(url, 5000));
       } catch (err) {
         console.error("Error loading index data:", err);
         if (isMounted) {
-          setIsTopHalfReady(true);
-          setIsContentLoading(false);
+          setLoadProgress(100);
+          setIsPageReady(true);
+          setTimeout(() => isMounted && setShowSplash(false), 300);
         }
       }
     };
@@ -197,21 +309,26 @@ export function Index() {
     return () => { isMounted = false; };
   }, []);
 
-  // 2. LAZY-MOUNT YOUTUBE IFRAMES ONLY WHEN USER SCROLLS NEAR THEM
+  // 2. PRE-WARM YOUTUBE VIDEOS QUIETLY (STAGGERED) AFTER SPLASH LIFTS
+  // Mounting 1 iframe every 450ms prevents the massive CPU spike when scrolling down
   useEffect(() => {
-    if (!videoSectionRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setMountVideos(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "400px" }
-    );
-    observer.observe(videoSectionRef.current);
-    return () => observer.disconnect();
-  }, [experienceVideos.length]);
+    if (!isPageReady || experienceVideos.length === 0) return;
+
+    let current = 0;
+    let timer: NodeJS.Timeout;
+
+    const mountNext = () => {
+      current += 1;
+      setMountedVideoCount(current);
+      if (current < experienceVideos.length) {
+        timer = setTimeout(mountNext, 450);
+      }
+    };
+
+    // Start pre-mounting 800ms after splash fades so initial scroll is 100% silky
+    timer = setTimeout(mountNext, 800);
+    return () => clearTimeout(timer);
+  }, [isPageReady, experienceVideos.length]);
 
   const handleSubscribe = async () => {
     if (!email || !email.includes("@")) {
@@ -263,17 +380,15 @@ export function Index() {
   };
 
   useEffect(() => {
-    if (isPaused || heroBanners.length <= 1 || !isTopHalfReady) return;
-    const startTimer = () => {
-      timerRef.current = setTimeout(() => {
-        setCurrentSlide((prev) => (prev === heroBanners.length - 1 ? 0 : prev + 1));
-      }, heroBanners[currentSlide]?.duration_ms || 5000);
-    };
-    startTimer();
+    if (isPaused || heroBanners.length <= 1 || !isPageReady) return;
+    timerRef.current = setTimeout(() => {
+      setCurrentSlide((prev) => (prev === heroBanners.length - 1 ? 0 : prev + 1));
+    }, heroBanners[currentSlide]?.duration_ms || 5000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [currentSlide, isPaused, heroBanners, isTopHalfReady]);
+  }, [currentSlide, isPaused, heroBanners, isPageReady]);
 
   useEffect(() => {
+    if (!isPageReady) return;
     const autoScrollInterval = setInterval(() => {
       if (window.innerWidth < 768) {
         if (promiseScrollRef.current) {
@@ -297,40 +412,38 @@ export function Index() {
       }
     }, 3500);
     return () => clearInterval(autoScrollInterval);
-  }, []);
+  }, [isPageReady]);
 
-  const handlePromiseScroll = () => {
+  const handlePromiseScroll = useCallback(() => {
     if (!promiseScrollRef.current || promises.length === 0) return;
     const childWidth = promiseScrollRef.current.children[0]?.clientWidth || 1;
     const index = Math.round(promiseScrollRef.current.scrollLeft / childWidth);
     setActivePromiseIndex(Math.min(index, promises.length - 1));
-  };
+  }, [promises.length]);
 
-  const handleOccasionScroll = () => {
+  const handleOccasionScroll = useCallback(() => {
     if (!occasionScrollRef.current || occasions.length === 0) return;
     const childWidth = occasionScrollRef.current.children[0]?.clientWidth || 1;
     const index = Math.round(occasionScrollRef.current.scrollLeft / childWidth);
     setActiveOccasionIndex(Math.min(index, occasions.length - 1));
-  };
+  }, [occasions.length]);
 
   const scrollStories = (direction: 'left' | 'right') => {
     if (storyScrollRef.current) {
-      const { current } = storyScrollRef;
       const scrollAmount = window.innerWidth < 768 ? window.innerWidth * 0.75 : 320;
-      current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+      storyScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
     }
   };
 
   const scrollOccasions = (direction: 'left' | 'right') => {
     if (occasionScrollRef.current) {
-      const { current } = occasionScrollRef;
       const scrollAmount = window.innerWidth < 768 ? window.innerWidth * 0.75 : 380;
-      current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+      occasionScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
     }
   };
 
-  const whyImage = cmsSections?.why_pavitram?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/section2.webp";
-  const harvestImage = cmsSections?.harvesting_plan?.image_url || "https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/banner_images/5-mobile.png";
+  const whyImage = cmsSections?.why_pavitram?.image_url || DEFAULT_WHY_IMAGE;
+  const harvestImage = cmsSections?.harvesting_plan?.image_url || DEFAULT_HARVEST_IMAGE;
 
   const harvestingPoints = cmsSections?.harvesting_plan?.bullet_points || [
     { id: "01", title: "Invest Monthly", desc: "Save a fixed amount every month." },
@@ -339,29 +452,61 @@ export function Index() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FCF9F5] font-sans text-[#302832] pb-0 relative overflow-hidden">
+    <div className="min-h-screen bg-[#FCF9F5] font-sans text-[#302832] pb-0 relative overflow-x-hidden">
 
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-        .animate-marquee { animation: marquee 25s linear infinite; }
-        .animate-shimmer { animation: shimmer 2s infinite ease-in-out; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .font-serif { font-family: 'Cormorant Garamond', serif; }
-        .font-sans { font-family: 'DM Sans', sans-serif; }
-        .gpu-accelerated { transform: translate3d(0,0,0); backface-visibility: hidden; will-change: transform; }
-        .bg-pattern-overlay {
-          background-image: url('${BG_PATTERN}');
-          background-size: cover;
-          background-position: center;
-        }
-      `}} />
+<style dangerouslySetInnerHTML={{__html: `
+  @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+  @keyframes logoBreathe {
+    0%, 100% { opacity: 0.88; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.025); }
+  }
+  @keyframes logoReveal {
+    0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-marquee { animation: marquee 25s linear infinite; will-change: transform; }
+  .animate-logo-breathe { animation: logoReveal 0.6s ease-out forwards, logoBreathe 2.8s ease-in-out 0.6s infinite; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .font-serif { font-family: 'Cormorant Garamond', serif; }
+  .font-sans { font-family: 'DM Sans', sans-serif; }
+  .card-contain { contain: layout paint; }
+  .bg-pattern-overlay {
+    background-image: url('${BG_PATTERN}');
+    background-size: 420px;
+    background-repeat: repeat;
+  }
+`}} />
 
+
+{showSplash && (
+  <div
+    aria-busy={!isPageReady}
+    className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#FCF9F5] transition-opacity duration-700 ease-out ${
+      isPageReady ? "opacity-0 pointer-events-none" : "opacity-100"
+    }`}
+  >
+    <div className="flex flex-col items-center px-6">
+      {/* Subtle breathing animation on your branded Logo component */}
+      <div className="animate-logo-breathe mb-7 scale-110 md:scale-125">
+        <Logo />
+      </div>
+
+      {/* Minimal hairline progress bar */}
+      <div className="w-36 md:w-44 h-[1.5px] bg-[#E9D8C3]/70 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[#C9A15B] transition-all duration-300 ease-out"
+          style={{ width: `${loadProgress}%` }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+      {/* TOP MOBILE TICKER */}
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden bg-[#4A1F58] py-2 border-b border-[#302832] shadow-inner flex md:hidden">
           <div className="animate-marquee flex items-center whitespace-nowrap w-max">
-            {[...Array(8)].map((_, groupIdx) => (
+            {[...Array(6)].map((_, groupIdx) => (
               <React.Fragment key={groupIdx}>
                 {tickers.map((ticker, i) => {
                   const IconComponent = ICON_MAP[ticker.icon_name] || Diamond;
@@ -380,33 +525,17 @@ export function Index() {
         </div>
       )}
 
-      {/* HERO SECTION */}
+      {/* HERO SECTION (NATIVE <picture> PREVENTS DOUBLE DOWNLOADING) */}
       <section className="relative w-full overflow-hidden bg-[#FCF9F5]">
         <div
           className="relative w-full h-[75vh] md:h-[60vh] lg:h-[65vh] overflow-hidden group bg-[#F7F1E8]"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {!isTopHalfReady ? (
-            <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#F7F1E8] via-[#EFE5D5] to-[#F7F1E8] flex flex-col items-center justify-center">
-              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer pointer-events-none" />
-              <div className="relative z-10 flex flex-col items-center">
-                <img
-                  src="https://mfdjlbvqfbujipihehpt.supabase.co/storage/v1/object/public/ecommerce-assets/logo2.webp"
-                  alt="Loading Pavitram"
-                  className="h-14 md:h-16 w-auto object-contain animate-pulse mb-3 opacity-80"
-                />
-              </div>
-              <div className="absolute bottom-6 md:bottom-8 flex gap-2">
-                <div className="w-8 h-1.5 rounded-full bg-[#C9A15B]/30" />
-                <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
-                <div className="w-2 h-1.5 rounded-full bg-[#C9A15B]/20" />
-              </div>
-            </div>
-          ) : heroBanners.length > 0 ? (
+          {heroBanners.length > 0 && (
             <>
               <div
-                className="flex w-full h-full transition-transform duration-700 ease-out gpu-accelerated"
+                className="flex w-full h-full transition-transform duration-700 ease-out"
                 style={{ transform: `translate3d(-${currentSlide * 100}%, 0, 0)` }}
               >
                 {heroBanners.map((banner, index) => (
@@ -415,24 +544,18 @@ export function Index() {
                     to={banner.link || "/"}
                     preload="intent"
                     className="w-full h-full shrink-0 relative block bg-[#F7F1E8]"
-                    style={{ transform: 'translateZ(0)' }}
                   >
-                    <img
-                      src={banner.desktop_image_url}
-                      alt="Hero Banner Desktop"
-                      fetchPriority={index === 0 ? "high" : "auto"}
-                      loading="eager"
-                      decoding="async"
-                      className="hidden md:block w-full h-full object-cover object-center pointer-events-none"
-                    />
-                    <img
-                      src={banner.mobile_image_url}
-                      alt="Hero Banner Mobile"
-                      fetchPriority={index === 0 ? "high" : "auto"}
-                      loading="eager"
-                      decoding="async"
-                      className="block md:hidden w-full h-full object-cover object-top pointer-events-none"
-                    />
+                    <picture className="w-full h-full block">
+                      <source media="(min-width: 768px)" srcSet={banner.desktop_image_url} />
+                      <img
+                        src={banner.mobile_image_url || banner.desktop_image_url}
+                        alt={banner.title || "Pavitram Hero Banner"}
+                        fetchPriority={index === 0 ? "high" : "low"}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                        className="w-full h-full object-cover object-top md:object-center pointer-events-none"
+                      />
+                    </picture>
                   </Link>
                 ))}
               </div>
@@ -443,20 +566,24 @@ export function Index() {
                     <button
                       key={index}
                       onClick={() => setCurrentSlide(index)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 md:w-12 bg-white shadow-sm' : 'w-2 md:w-3 bg-white/50 hover:bg-white/80'}`}
+                      aria-label={`Slide ${index + 1}`}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        index === currentSlide ? 'w-8 md:w-12 bg-white shadow-sm' : 'w-2 md:w-3 bg-white/50 hover:bg-white/80'
+                      }`}
                     />
                   ))}
                 </div>
               )}
             </>
-          ) : null}
+          )}
         </div>
       </section>
 
+      {/* DESKTOP TICKER */}
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden bg-[#4A1F58] py-2.5 border-b border-[#302832] shadow-inner hidden md:flex">
           <div className="animate-marquee flex items-center whitespace-nowrap w-max">
-            {[...Array(8)].map((_, groupIdx) => (
+            {[...Array(6)].map((_, groupIdx) => (
               <React.Fragment key={groupIdx}>
                 {tickers.map((ticker, i) => {
                   const IconComponent = ICON_MAP[ticker.icon_name] || Diamond;
@@ -475,100 +602,76 @@ export function Index() {
         </div>
       )}
 
-      {/* CATEGORY GRID - ALL IMAGES PRE-DECODED & EAGERLY RENDERED */}
-      <section className="relative w-full pt-10 pb-16 md:pt-20 md:pb-24 z-20 overflow-hidden bg-[#FCF9F5]">
-        <div className="absolute inset-0 bg-pattern-overlay opacity-[0.06] pointer-events-none z-0" />
+      {/* CATEGORY GRID - ZERO-REFLOW, GPU-ISOLATED */}
+<section className="relative w-full pt-10 pb-16 md:pt-20 md:pb-24 z-20 bg-[#FCF9F5]">
+  <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col gap-8 md:gap-14 px-4 md:px-8">
+    <div className="text-center">
+      <h2 className="text-[28px] sm:text-3xl md:text-4xl lg:text-5xl font-serif text-[#302832] leading-tight mb-2 md:mb-3">
+        Shop by Category
+      </h2>
+      <p className="text-[11px] md:text-sm font-sans text-zinc-500 tracking-[0.15em] uppercase font-medium">
+        Explore our most-loved jewellery collections
+      </p>
+    </div>
 
-        <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col gap-8 md:gap-14 px-4 md:px-8">
-          <div className="text-center">
-            <h2 className="text-[28px] sm:text-3xl md:text-4xl lg:text-5xl font-serif text-[#302832] leading-tight mb-2 md:mb-3">
-              Shop by Category
-            </h2>
-            <p className="text-[11px] md:text-sm font-sans text-zinc-500 tracking-[0.15em] uppercase font-medium">
-              Explore our most-loved jewellery collections
-            </p>
-          </div>
+    <div className="w-full">
+      {categories.length === 0 ? (
+        <div className="text-center py-10 text-sm text-zinc-400">No categories found.</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 w-full md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
+          {categories.map((cat, idx) => {
+            let desktopGridClass = "";
+            const pattern = idx % 7;
+            if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
+            else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1";
+            else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2";
+            else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1";
+            else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1";
+            else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1";
+            else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1";
 
-          <div className="w-full">
-            {!isTopHalfReady ? (
-              <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
-                {[...Array(6)].map((_, i) => {
-                  const aspectRatios = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
-                  const mobileAspectClass = aspectRatios[i % aspectRatios.length];
-                  let desktopGridClass = "";
-                  const pattern = i % 7;
-                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
-                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2";
-                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1";
-                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1";
+            return (
+              <Link
+                key={cat.id}
+                to="/category/$slug"
+                params={{ slug: cat.slug }}
+                preload="intent"
+                className={`card-contain group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] block w-full aspect-[4/5] md:aspect-auto md:h-full ${desktopGridClass}`}
+              >
+                {cat.image_url ? (
+                  <img
+                    src={cat.image_url}
+                    alt={cat.name}
+                    loading="eager"
+                    decoding="async"
+                    className="w-full h-full object-cover md:group-hover:scale-[1.03] transition-transform duration-500 ease-out pointer-events-none"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-[#C9A15B]/50 bg-[#302832]">
+                    <Diamond className="w-8 h-8 mb-2 opacity-50" />
+                  </div>
+                )}
 
-                  return (
-                    <div key={i} className={`animate-pulse bg-[#E9D8C3]/50 rounded-xl md:rounded-sm block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass}`} />
-                  );
-                })}
-              </div>
-            ) : categories.length === 0 ? (
-              <div className="text-center py-10 text-sm text-zinc-400">No categories found.</div>
-            ) : (
-              <div className="columns-2 gap-3 w-full md:columns-1 md:grid md:grid-cols-4 md:auto-rows-[280px] md:gap-5 md:grid-flow-dense">
-                {categories.map((cat, idx) => {
-                  const aspectRatios = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
-                  const mobileAspectClass = aspectRatios[idx % aspectRatios.length];
+                {/* Static gradient overlay - no opacity transition on scroll */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 
-                  let desktopGridClass = "";
-                  const pattern = idx % 7;
-                  if (pattern === 0) desktopGridClass = "md:col-span-2 md:row-span-2";
-                  else if (pattern === 1) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 2) desktopGridClass = "md:col-span-1 md:row-span-2";
-                  else if (pattern === 3) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 4) desktopGridClass = "md:col-span-1 md:row-span-1";
-                  else if (pattern === 5) desktopGridClass = "md:col-span-2 md:row-span-1";
-                  else if (pattern === 6) desktopGridClass = "md:col-span-1 md:row-span-1";
-
-                  return (
-                    <Link
-                      key={cat.id}
-                      to="/category/$slug"
-                      params={{ slug: cat.slug }}
-                      preload="intent"
-                      className={`group relative rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-sm hover:shadow-xl transition-shadow duration-300 block w-full mb-3 break-inside-avoid ${mobileAspectClass} md:mb-0 md:aspect-auto md:h-full ${desktopGridClass} gpu-accelerated`}
-                    >
-                      {cat.image_url ? (
-                        <img
-                          src={cat.image_url}
-                          alt={cat.name}
-                          loading="eager"
-                          decoding="sync"
-                          fetchPriority={idx < 4 ? "high" : "auto"}
-                          className="relative z-[1] w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.04] transition-transform duration-500 ease-out pointer-events-none"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-[#C9A15B]/50 bg-[#302832]">
-                          <Diamond className="w-8 h-8 mb-2 opacity-50" />
-                        </div>
-                      )}
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300 z-[2]" />
-
-                      <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex flex-col items-center justify-end z-10 pointer-events-none text-center">
-                        <div className="flex flex-col items-center transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
-                          <h3 className="text-white font-serif font-medium text-lg md:text-3xl tracking-wide drop-shadow-lg leading-tight">
-                            {cat.name}
-                          </h3>
-                          <div className="hidden md:block w-0 h-[2px] bg-[#C9A15B] mt-2 group-hover:w-12 transition-all duration-300 ease-out opacity-0 group-hover:opacity-100" />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex flex-col items-center justify-end pointer-events-none text-center">
+                  <div className="flex flex-col items-center md:group-hover:-translate-y-1 transition-transform duration-300 ease-out">
+                    <h3 className="text-white font-serif font-medium text-lg md:text-3xl tracking-wide leading-tight [text-shadow:0_2px_10px_rgba(0,0,0,0.65)]">
+                      {cat.name}
+                    </h3>
+                    {/* Pure GPU scaleX instead of layout-reflowing width */}
+                    <div className="hidden md:block w-12 h-[2px] bg-[#C9A15B] mt-2 origin-center scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out" />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
-      </section>
+      )}
+    </div>
+  </div>
+</section>
 
       {/* BESTSELLERS */}
       <section className="relative w-full pt-10 pb-12 md:pt-16 md:pb-16 overflow-hidden bg-white">
@@ -589,18 +692,7 @@ export function Index() {
           </div>
 
           <div className="flex overflow-x-auto hide-scrollbar gap-4 md:gap-8 pb-4 items-stretch w-full">
-            {isContentLoading ? (
-              <>
-                {[...Array(5)].map((_, i) => (
-                  <div key={`skel-${i}`} className="shrink-0 snap-start w-[140px] md:w-[240px] flex flex-col">
-                    <div className="aspect-[4/5] w-full bg-[#E9D8C3]/40 animate-pulse rounded-xl md:rounded-sm mb-3 md:mb-4 border border-[#E9D8C3]/30" />
-                    <div className="h-2.5 md:h-3 bg-[#E9D8C3]/40 animate-pulse rounded w-1/3 mx-auto mb-2" />
-                    <div className="h-4 md:h-5 bg-[#E9D8C3]/40 animate-pulse rounded w-3/4 mx-auto mb-2" />
-                    <div className="h-4 md:h-5 bg-[#E9D8C3]/40 animate-pulse rounded w-1/2 mx-auto" />
-                  </div>
-                ))}
-              </>
-            ) : premiumProducts.length > 0 ? (
+            {premiumProducts.length > 0 ? (
               premiumProducts.map((product, idx) => (
                 <Link
                   key={product.id}
@@ -614,7 +706,7 @@ export function Index() {
                       <img
                         src={product.cover_image_url}
                         alt={product.title}
-                        loading={idx < 6 ? "eager" : "lazy"}
+                        loading={idx < 5 ? "eager" : "lazy"}
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
@@ -654,7 +746,6 @@ export function Index() {
 
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-16">
-
             <div className="w-full lg:w-5/12 relative group px-2 md:px-0">
               <div className="absolute inset-0 translate-x-3 translate-y-3 md:translate-x-4 md:translate-y-4 border border-[#C9A15B]/40 rounded-sm z-0 transition-transform duration-500 group-hover:translate-x-4 group-hover:translate-y-4" />
               <div className="relative z-10 aspect-[4/5] md:aspect-[3/4] overflow-hidden rounded-sm shadow-lg">
@@ -731,7 +822,7 @@ export function Index() {
           <div className="flex flex-col gap-3 md:gap-6">
             {priceCollections[0] && (
               <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[0]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
-                <img src={priceCollections[0].image_url} loading="eager" decoding="async" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                <img src={priceCollections[0].image_url} loading="lazy" decoding="async" alt={priceCollections[0].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
                 <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                   <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
@@ -749,7 +840,7 @@ export function Index() {
             <div className="grid grid-cols-2 gap-3 md:gap-6">
               {[priceCollections[1], priceCollections[2]].map((item, idx) => item && (
                 <Link key={idx} to="/category/$slug" params={{ slug: getSafeSlug(item) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[4/5] md:aspect-[2/1] lg:aspect-[5/2] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
-                  <img src={item.image_url} loading="eager" decoding="async" alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                  <img src={item.image_url} loading="lazy" decoding="async" alt={item.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                   <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                     <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
@@ -767,7 +858,7 @@ export function Index() {
 
             {priceCollections[3] && (
               <Link to="/category/$slug" params={{ slug: getSafeSlug(priceCollections[3]) }} preload="intent" className="group relative rounded-xl md:rounded-sm overflow-hidden aspect-[2/1] md:aspect-[4/1] lg:aspect-[5/1] bg-[#E9D8C3] shadow-sm hover:shadow-lg transition-all duration-300">
-                <img src={priceCollections[3].image_url} loading="eager" decoding="async" alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                <img src={priceCollections[3].image_url} loading="lazy" decoding="async" alt={priceCollections[3].title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
                 <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                 <div className="absolute bottom-0 left-0 p-4 md:p-8 z-10 text-left w-full flex flex-col justify-end">
                   <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
@@ -788,12 +879,11 @@ export function Index() {
       {/* PAVITRAM HARVESTING PLAN */}
       <section className="relative w-full bg-[#4A1F58] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 relative">
-
           <div className="w-full h-[35vh] md:h-[40vh] lg:h-auto relative">
             <div className="lg:absolute lg:inset-0 w-full h-full">
               <img
                 src={harvestImage}
-                loading="eager"
+                loading="lazy"
                 decoding="async"
                 alt="Pavitram Harvesting Plan"
                 className="w-full h-full object-cover object-top opacity-80"
@@ -814,19 +904,19 @@ export function Index() {
             </p>
 
             <div className="flex flex-col gap-5 md:gap-6 mb-10 relative z-10">
-               {harvestingPoints.map((point: any, idx: number) => (
-                 <div key={idx} className="flex items-start gap-4 md:gap-5 group">
-                    <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
-                      {point.id}
-                    </div>
-                    <div>
-                      <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
-                        {point.title}
-                      </h4>
-                      <p className="text-xs font-sans text-white/60 leading-relaxed">{point.desc}</p>
-                    </div>
-                 </div>
-               ))}
+              {harvestingPoints.map((point: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-4 md:gap-5 group">
+                  <div className="text-2xl md:text-4xl font-serif font-light text-[#C9A15B] opacity-50 group-hover:opacity-100 transition-opacity leading-none mt-1">
+                    {point.id}
+                  </div>
+                  <div>
+                    <h4 className="text-sm md:text-base font-serif font-medium text-white tracking-wide mb-1 flex items-center gap-2">
+                      {point.title}
+                    </h4>
+                    <p className="text-xs font-sans text-white/60 leading-relaxed">{point.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="relative z-10">
@@ -834,7 +924,6 @@ export function Index() {
                 Start Your Plan <ArrowRight className="w-4 h-4 ml-3 group-hover:translate-x-2 transition-transform" />
               </Link>
             </div>
-
           </div>
         </div>
       </section>
@@ -884,7 +973,7 @@ export function Index() {
                     preload="intent"
                     className="shrink-0 snap-center w-[280px] md:w-[350px] group relative overflow-hidden bg-[#302832] rounded-xl md:rounded-sm aspect-[4/3] md:aspect-[5/4] shadow-md hover:shadow-xl transition-all duration-300"
                   >
-                    <img src={occasion.image_url} loading="eager" decoding="async" alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
+                    <img src={occasion.image_url} loading="lazy" decoding="async" alt={occasion.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition-transform duration-500 ease-out" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-90 transition-opacity duration-300" />
                     <div className="absolute bottom-0 left-0 p-8 w-full text-center">
                       <div className="transform transition-transform duration-300 ease-out group-hover:-translate-y-1">
@@ -906,7 +995,6 @@ export function Index() {
                 </div>
               )}
             </div>
-
           </div>
         </section>
       )}
@@ -980,13 +1068,12 @@ export function Index() {
                 Or View All Showrooms Directory
               </Link>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* THE PAVITRAM EXPERIENCE (YOUTUBE VIDEOS LAZY-MOUNTED) */}
-      <section ref={videoSectionRef} className="relative w-full pt-8 pb-12 md:py-24 overflow-hidden bg-transparent">
+      {/* THE PAVITRAM EXPERIENCE (STAGGERED BACKGROUND PRE-MOUNTED YOUTUBE VIDEOS) */}
+      <section className="relative w-full pt-8 pb-12 md:py-24 overflow-hidden bg-transparent">
         <div className="max-w-[1400px] mx-auto px-0 md:px-8 relative z-10">
           <div className="flex flex-col items-center text-center mb-10 md:mb-16 px-4">
             <h2 className="text-3xl md:text-4xl font-serif font-medium text-[#4A1F58] mb-3 uppercase tracking-wide">
@@ -1019,35 +1106,12 @@ export function Index() {
               className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-[12.5vw] md:px-0"
             >
               {experienceVideos.map((story, index) => (
-                <div
-                  key={index}
-                  className="shrink-0 w-[75vw] md:w-[320px] aspect-[9/16] relative snap-center rounded-xl md:rounded-sm overflow-hidden bg-[#302832] shadow-md border border-[#E9D8C3]/20"
-                >
-                  {mountVideos ? (
-                    <iframe
-                      className="absolute inset-0 w-full h-[105%] -top-[2.5%] pointer-events-none"
-                      src={`https://www.youtube.com/embed/${story.video_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${story.video_id}&playsinline=1&rel=0&modestbranding=1`}
-                      title={`Pavitram Experience ${index + 1}`}
-                      frameBorder="0"
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <img
-                      src={`https://i.ytimg.com/vi/${story.video_id}/hqdefault.jpg`}
-                      alt="Video Preview"
-                      className="w-full h-full object-cover opacity-80"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                  <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col items-center text-center pointer-events-none">
-                    <h4 className="font-serif text-white text-lg tracking-[0.15em] drop-shadow-md">PAVITRAM</h4>
-                    <p className="text-[10px] md:text-[11px] font-sans text-white font-bold px-4 py-1">
-                      Diamond Jewellery
-                    </p>
-                  </div>
-                </div>
+                <ExperienceVideoCard
+                  key={story.video_id || index}
+                  videoId={story.video_id}
+                  index={index}
+                  shouldMount={index < mountedVideoCount}
+                />
               ))}
             </div>
           </div>
@@ -1183,11 +1247,11 @@ export function Index() {
         </div>
       </section>
 
-      {/* CSS TICKER */}
+      {/* BOTTOM CSS TICKER */}
       {tickers.length > 0 && (
         <div className="w-full overflow-hidden whitespace-nowrap py-2.5 border-t border-[#E9D8C3] bg-white flex items-center">
           <div className="inline-block animate-marquee flex-nowrap flex items-center">
-            {[...Array(8)].map((_, groupIdx) => (
+            {[...Array(6)].map((_, groupIdx) => (
               <React.Fragment key={groupIdx}>
                 <span className="text-[10px] md:text-xs font-sans font-bold text-[#4A1F58] uppercase tracking-[0.2em] mx-6">
                   PAVITRAM DIAMOND JEWELLERY • A OSSAM JEWELS COMPANY •
@@ -1199,7 +1263,6 @@ export function Index() {
       )}
 
       <FloatingHelp />
-
     </div>
   );
 }
